@@ -83,7 +83,7 @@ function(add_unit_test name)
   target_include_directories(${name}
                              SYSTEM BEFORE PRIVATE
                                "${BlocksRuntime_INCLUDE_DIR}")
-  if("${CMAKE_C_SIMULATE_ID}" STREQUAL "MSVC")
+  if("${CMAKE_C_COMPILER_FRONTEND_VARIANT}" STREQUAL "MSVC")
     target_compile_options(${name} PRIVATE -Xclang -fblocks)
     target_compile_options(${name} PRIVATE /W3 -Wno-deprecated-declarations)
   else()

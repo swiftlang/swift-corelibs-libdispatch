@@ -111,7 +111,7 @@ if(DISPATCH_ENABLE_ASSERTS)
     DISPATCH_DEBUG=1)
 endif()
 
-if("${CMAKE_C_SIMULATE_ID}" STREQUAL "MSVC")
+if("${CMAKE_C_COMPILER_FRONTEND_VARIANT}" STREQUAL "MSVC")
   target_compile_options(dispatch PRIVATE /EHs-c-)
   target_compile_options(dispatch PRIVATE /W3)
 else()
