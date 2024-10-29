@@ -110,7 +110,7 @@ public struct DispatchData : RandomAccessCollection {
 	{
 		var ptr: UnsafeRawPointer? = nil
 		var size = 0
-		let data = CDispatch.dispatch_data_create_map(__wrapped.__wrapped, &ptr, &size)
+		let data = DispatchData(data: CDispatch.dispatch_data_create_map(__wrapped.__wrapped, &ptr, &size))
 		let contentPtr = ptr!.bindMemory(
 			to: ContentType.self, capacity: size / MemoryLayout<ContentType>.stride)
 		defer { _fixLifetime(data) }
