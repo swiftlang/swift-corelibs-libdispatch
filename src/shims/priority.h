@@ -262,10 +262,12 @@ static inline int _dispatch_pp_to_win32_priority(pthread_priority_t pp) {
 			return THREAD_PRIORITY_BELOW_NORMAL;
 		case DISPATCH_QOS_DEFAULT:
 			return THREAD_PRIORITY_NORMAL;
+			// User input threads should be THREAD_PRIORITY_NORMAL, to
+			// avoid unintentionally starving the system
 		case DISPATCH_QOS_USER_INITIATED:
-			return THREAD_PRIORITY_ABOVE_NORMAL;
+			return THREAD_PRIORITY_NORMAL;
 		case DISPATCH_QOS_USER_INTERACTIVE:
-			return THREAD_PRIORITY_HIGHEST;
+			return THREAD_PRIORITY_NORMAL;
 	}
 
 	return THREAD_PRIORITY_NORMAL;
