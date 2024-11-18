@@ -29,25 +29,28 @@
 #endif
 
 #if defined(_WIN32)
-// Needs to be free'd after use
-static inline wchar_t *_Nullable _dispatch_char_to_wchar_str(const char *str) {
-    int wideCharSize = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
-    if (wideCharSize == 0) {
-        return NULL;
+// Wrapper around SetThreadDescription for UTF-8 strings
+void _dispatch_win32_set_thread_description(HANDLE hThread, const char *description) {
+    int wcsize = MultiByteToWideChar(CP_UTF8, 0, description, -1, NULL, 0);
+    if (wcsize == 0) {
+        return;
     }
 
-    wchar_t* wideCharStr = (wchar_t*)malloc(wideCharSize * sizeof(wchar_t));
-    if (wideCharStr == NULL) {
-        return NULL;
+    wchar_t* wcstr = (wchar_t*)malloc(wcsize * sizeof(wchar_t));
+    if (wcstr == NULL) {
+        return;
     }
 
-    int result = MultiByteToWideChar(CP_UTF8, 0, str, -1, wideCharStr, wideCharSize);
+    int result = MultiByteToWideChar(CP_UTF8, 0, description, -1, wcstr, wcsize);
     if (result == 0) {
-        free(wideCharStr);
-		return NULL;
+        free(wcstr);
+        return;
     }
 
-	return wideCharStr;
+    if (likely(wcstr != NULL)) {
+        SetThreadDescription(hThread, wcstr);
+        free(wcstr);
+    }
 }
 #endif
 
@@ -6286,11 +6289,7 @@ _dispatch_worker_thread(void *context)
 
 	// Set thread description to the label of the root queue
 	if (dq->dq_label) {
-		wchar_t *desc = _dispatch_char_to_wchar_str(dq->dq_label);
-		if (likely(desc != NULL)) {
-			SetThreadDescription(current, desc);
-			free(desc);
-		}
+		_dispatch_win32_set_thread_description(current, dq->dq_label);
 	}
 	
 	int rc = SetThreadPriority(current, win_priority);
