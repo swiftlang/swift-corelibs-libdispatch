@@ -6474,6 +6474,8 @@ _dispatch_runloop_handle_is_valid(dispatch_runloop_handle_t handle)
 	return MACH_PORT_VALID(handle);
 #elif defined(__linux__)
 	return handle >= 0;
+#elif defined(__FreeBSD__)
+	return handle > 0;
 #elif defined(_WIN32)
 	return handle != NULL;
 #else
@@ -6490,6 +6492,8 @@ _dispatch_runloop_queue_get_handle(dispatch_lane_t dq)
 #elif defined(__linux__)
 	// decode: 0 is a valid fd, so offset by 1 to distinguish from NULL
 	return ((dispatch_runloop_handle_t)(uintptr_t)dq->do_ctxt) - 1;
+#elif defined(__FreeBSD__)
+  return (dispatch_runloop_handle_t)(uintptr_t)dq->do_ctxt;
 #elif defined(_WIN32)
 	return ((dispatch_runloop_handle_t)(uintptr_t)dq->do_ctxt);
 #else
@@ -6507,12 +6511,20 @@ _dispatch_runloop_queue_set_handle(dispatch_lane_t dq,
 #elif defined(__linux__)
 	// encode: 0 is a valid fd, so offset by 1 to distinguish from NULL
 	dq->do_ctxt = (void *)(uintptr_t)(handle + 1);
+#elif defined(__FreeBSD__)
+	dq->do_ctxt = (void *)(uintptr_t)handle;
 #elif defined(_WIN32)
 	dq->do_ctxt = (void *)(uintptr_t)handle;
 #else
 #error "runloop support not implemented on this platform"
 #endif
 }
+
+#if defined(__unix__)
+#define DISPATCH_RUNLOOP_HANDLE_PACK(rfd, wfd) (((uint64_t)(rfd) << 32) | (wfd))
+#define DISPATCH_RUNLOOP_HANDLE_RFD(h) ((int)((h) >> 32))
+#define DISPATCH_RUNLOOP_HANDLE_WFD(h) ((int)((h) & 0xffffffff))
+#endif
 
 static void
 _dispatch_runloop_queue_handle_init(void *ctxt)
@@ -6563,6 +6575,14 @@ _dispatch_runloop_queue_handle_init(void *ctxt)
 		}
 	}
 	handle = fd;
+#elif defined(__unix__) && !defined(__linux__)
+	int fds[2];
+	int r = pipe2(fds, O_CLOEXEC | O_NONBLOCK);
+	if (r == -1) {
+		DISPATCH_CLIENT_CRASH(errno, "pipe2 failure");
+	}
+	uint32_t rfd = (uint32_t)fds[0], wfd = (uint32_t)fds[1];
+	handle = DISPATCH_RUNLOOP_HANDLE_PACK(rfd, wfd);
 #elif defined(_WIN32)
 	HANDLE hEvent;
 	hEvent = CreateEventW(NULL, /*bManualReset=*/FALSE,
@@ -6596,6 +6616,11 @@ _dispatch_runloop_queue_handle_dispose(dispatch_lane_t dq)
 	(void)dispatch_assume_zero(kr);
 #elif defined(__linux__)
 	int rc = close(handle);
+	(void)dispatch_assume_zero(rc);
+#elif defined(__unix__) && !defined(__linux__)
+	int rc = close(DISPATCH_RUNLOOP_HANDLE_WFD(handle));
+	(void)dispatch_assume_zero(rc);
+	rc = close(DISPATCH_RUNLOOP_HANDLE_RFD(handle));
 	(void)dispatch_assume_zero(rc);
 #elif defined(_WIN32)
 	BOOL bSuccess;
@@ -6633,6 +6658,13 @@ _dispatch_runloop_queue_class_poke(dispatch_lane_t dq)
 		result = eventfd_write(handle, 1);
 	} while (result == -1 && errno == EINTR);
 	(void)dispatch_assume_zero(result);
+#elif defined(__unix__) && !defined(__linux__)
+	int wfd = DISPATCH_RUNLOOP_HANDLE_WFD(handle);
+	ssize_t result;
+	do {
+		result = write(wfd, "x", 1);
+	} while (result == -1 && errno == EINTR);
+	(void)dispatch_assume_zero(result - 1);
 #elif defined(_WIN32)
 	BOOL bSuccess;
 	bSuccess = SetEvent(handle);
