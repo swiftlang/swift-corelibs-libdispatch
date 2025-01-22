@@ -302,8 +302,7 @@ extension DispatchSourceMemoryPressure {
 #if !os(Linux) && !os(Android) && !os(Windows)
 extension DispatchSourceProcess {
 	public var handle: pid_t {
-    return pid_t((self as! DispatchSource).handle)
-//		return pid_t(dispatch_source_get_handle(self as! DispatchSource))
+		return pid_t(CDispatch.dispatch_source_get_handle((self as! DispatchSource).__wrapped))
 	}
 
 	public var data: DispatchSource.ProcessEvent {
