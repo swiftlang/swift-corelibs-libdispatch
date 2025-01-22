@@ -6576,6 +6576,7 @@ _dispatch_runloop_queue_handle_init(void *ctxt)
 	}
 	handle = fd;
 #elif defined(__unix__) && !defined(__linux__)
+	// swift-corelib-foundation PR #3004 implemented a pipe based queue handle
 	int fds[2];
 	int r = pipe2(fds, O_CLOEXEC | O_NONBLOCK);
 	if (r == -1) {

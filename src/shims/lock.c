@@ -556,7 +556,7 @@ _dispatch_wake_by_address(uint32_t volatile *address)
 #elif defined(_WIN32)
 	WakeByAddressAll((uint32_t *)address);
 #elif defined(__FreeBSD__)
-  _umtx_op((void*)address, UMTX_OP_WAKE, INT_MAX, 0, 0);
+	_umtx_op((void*)address, UMTX_OP_WAKE, INT_MAX, 0, 0);
 #else
 	(void)address;
 #endif

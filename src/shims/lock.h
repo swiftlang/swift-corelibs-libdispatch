@@ -92,7 +92,7 @@ typedef uint32_t dispatch_lock;
 #define DLOCK_OWNER_MASK			((dispatch_lock)0xfffffffc)
 #define DLOCK_WAITERS_BIT			((dispatch_lock)0x00000001)
 #define DLOCK_FAILED_TRYLOCK_BIT		((dispatch_lock)0x00000002)
-#define _dispatch_tid_self()        ((dispatch_tid)(_dispatch_get_tsd_base()->tid << 2))
+#define _dispatch_tid_self()			((dispatch_tid)(_dispatch_get_tsd_base()->tid << 2))
 
 DISPATCH_ALWAYS_INLINE
 static inline dispatch_tid
