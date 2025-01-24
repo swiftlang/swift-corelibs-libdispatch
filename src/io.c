@@ -1437,20 +1437,20 @@ _dispatch_fd_entry_create_with_fd(dispatch_fd_t fd, uintptr_t hash)
 				int result = ioctlsocket((SOCKET)fd, (long)FIONBIO, &value);
 				(void)dispatch_assume_zero(result);
 			} else {
-				// Try to make writing nonblocking, although pipes not coming
-				// from Foundation.Pipe may not have FILE_WRITE_ATTRIBUTES.
+				// The _dispatch_pipe_monitor_thread expects pipes to be
+				// PIPE_WAIT and exploits this assumption by using a blocking
+				// 0-byte read as a synchronization mechanism.
 				DWORD dwPipeMode = 0;
 				if (GetNamedPipeHandleState((HANDLE)fd, &dwPipeMode, NULL,
-						NULL, NULL, NULL, 0) && !(dwPipeMode & PIPE_NOWAIT)) {
-					dwPipeMode |= PIPE_NOWAIT;
+						NULL, NULL, NULL, 0) && !(dwPipeMode & PIPE_WAIT)) {
+					dwPipeMode |= PIPE_WAIT;
 					if (!SetNamedPipeHandleState((HANDLE)fd, &dwPipeMode,
 							NULL, NULL)) {
-						// We may end up blocking on subsequent writes, but we
-						// don't have a good alternative.
-						// The WriteQuotaAvailable from NtQueryInformationFile
-						// erroneously returns 0 when there is a blocking read
-						// on the other end of the pipe.
-						_dispatch_fd_entry_debug("failed to set PIPE_NOWAIT",
+						// If setting the pipe to PIPE_WAIT fails, the
+						// monitoring thread will spin constantly, saturating
+						// a core, which is undesirable but non-fatal.
+						// The semantics will still be correct in this case.
+						_dispatch_fd_entry_debug("failed to set PIPE_WAIT",
 								fd_entry);
 					}
 				}
