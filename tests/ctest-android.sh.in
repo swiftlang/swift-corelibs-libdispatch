@@ -1,0 +1,45 @@
+#!/system/bin/sh
+
+# Run tests in Android emulator when cross-compiling:
+# $ adb push <binary-dir> /data/local/tmp"
+# $ adb shell "sh /data/local/tmp/tests/ctest-android.sh"
+
+BINARY_DIR=$(dirname "$0")/..
+UTILITY="$BINARY_DIR/bsdtestharness"
+if [ ! -f "$UTILITY" ]; then
+    echo "Utility not found: $UTILITY."
+    exit 1
+fi
+
+# CMake injects test executables at configuration time
+TESTS="@DISPATCH_C_TESTS@"
+COUNT=$(echo "$TESTS" | tr ';' '\n' | wc -l)
+echo "Running $COUNT test-cases from $BINARY_DIR"
+
+# Tests depend on libdispatch.so and libBlocksRuntime.so
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$BINARY_DIR"
+
+TIMOUT=120
+FAILURE=0
+IFS=';'
+chmod +x "$UTILITY"
+
+for TEST in $TESTS; do
+    chmod +x "$BINARY_DIR/dispatch_$TEST"
+    OUTPUT=$(timeout "${TIMOUT}s" "$UTILITY" "$BINARY_DIR/dispatch_$TEST" 2>&1)
+    EC=$?
+    if [ $EC -eq 124 ]; then
+        echo "Error: dispatch_$TEST timed out after $TIMOUT seconds"
+        echo "************\nOutput:\n$OUTPUT\n************"
+        FAILURE=1
+    elif [ $EC -ne 0 ]; then
+        echo "Error: dispatch_$TEST failed"
+        echo "************\nOutput:\n$OUTPUT\n************"
+        FAILURE=1
+    else
+        echo "dispatch_$TEST passed"
+    fi
+done
+
+unset IFS
+exit $FAILURE
