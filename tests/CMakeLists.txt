@@ -176,7 +176,7 @@ foreach(test ${DISPATCH_C_TESTS})
                   dispatch_${test}.c)
 endforeach()
 
-set_tests_properties(dispatch_io_pipe PROPERTIES TIMEOUT 15)
+set_tests_properties(dispatch_io_pipe PROPERTIES TIMEOUT 1)
 set_tests_properties(dispatch_io_pipe_close PROPERTIES TIMEOUT 5)
 
 # test dispatch API for various C/CXX language variants
