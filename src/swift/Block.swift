@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import CDispatch
-@_implementationOnly import _DispatchOverlayShims
+internal import _DispatchOverlayShims
 
 public struct DispatchWorkItemFlags : OptionSet, RawRepresentable {
 	public let rawValue: UInt

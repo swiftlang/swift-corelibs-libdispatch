@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import CDispatch
-@_implementationOnly import _DispatchOverlayShims
+internal import _DispatchOverlayShims
 #if os(Windows)
 import WinSDK
 #endif

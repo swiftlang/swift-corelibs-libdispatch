@@ -13,7 +13,7 @@
 // dispatch/queue.h
 
 import CDispatch
-@_implementationOnly import _DispatchOverlayShims
+internal import _DispatchOverlayShims
 
 public final class DispatchSpecificKey<T> {
 	public init() {}
