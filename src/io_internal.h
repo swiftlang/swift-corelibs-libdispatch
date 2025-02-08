@@ -79,12 +79,18 @@ struct dispatch_stream_s {
 
 typedef struct dispatch_stream_s *dispatch_stream_t;
 
+#if defined(_WIN32)
+typedef WCHAR dispatch_io_path_char_t;
+#else
+typedef char dispatch_io_path_char_t;
+#endif
+
 struct dispatch_io_path_data_s {
 	dispatch_io_t channel;
 	int oflag;
 	mode_t mode;
 	size_t pathlen;
-	char path[];
+	dispatch_io_path_char_t path[];
 };
 
 typedef struct dispatch_io_path_data_s *dispatch_io_path_data_t;

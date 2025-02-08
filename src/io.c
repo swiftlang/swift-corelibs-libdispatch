@@ -407,9 +407,13 @@ dispatch_io_create_f(dispatch_io_type_t type, dispatch_fd_t fd,
 }
 
 #if defined(_WIN32)
-#define _is_separator(ch) ((ch) == '/' || (ch) == '\\')
+#define _is_separator(ch) ((ch) == L'/' || (ch) == L'\\')
+#define _dispatch_stat _wstati64
+typedef struct _stati64 _dispatch_stat_t;
 #else
 #define _is_separator(ch) ((ch) == '/')
+#define _dispatch_stat stat
+typedef struct stat _dispatch_stat_t;
 #endif
 
 dispatch_io_t
@@ -424,16 +428,36 @@ dispatch_io_create_with_path(dispatch_io_type_t type, const char *path,
 	if (PathIsRelativeA(path)) {
 		return DISPATCH_BAD_INPUT;
 	}
+	int cchLength = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, NULL, 0);
+	if (!cchLength) {
+		dispatch_assert(GetLastError() == ERROR_NO_UNICODE_TRANSLATION);
+		return DISPATCH_BAD_INPUT;
+	}
+	dispatch_io_path_data_t path_data = malloc(sizeof(*path_data) + sizeof(WCHAR) * cchLength);
+	if (!path_data) {
+		return DISPATCH_OUT_OF_MEMORY;
+	}
+	path_data->pathlen = cchLength - 1; // Don't include terminating null character
+	cchLength = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, path_data->path, cchLength);
+	if (!cchLength) {
+		free(path_data);
+		// We already checked the input when measuring buffer length.
+		// Any error at this point seems fatal.
+		DISPATCH_INTERNAL_CRASH(GetLastError(), "MultiByteToWideChar");
+		return DISPATCH_BAD_INPUT;
+	}
 #else
 	if (!_is_separator(*path)) {
 		return DISPATCH_BAD_INPUT;
 	}
-#endif
 	size_t pathlen = strlen(path);
 	dispatch_io_path_data_t path_data = malloc(sizeof(*path_data) + pathlen+1);
 	if (!path_data) {
 		return DISPATCH_OUT_OF_MEMORY;
 	}
+	path_data->pathlen = pathlen;
+	memcpy(path_data->path, path, pathlen + 1);
+#endif
 	dispatch_io_t channel = _dispatch_io_create(type);
 	channel->fd = -1;
 	_dispatch_channel_debug("create with path %s", channel, path);
@@ -441,16 +465,14 @@ dispatch_io_create_with_path(dispatch_io_type_t type, const char *path,
 	path_data->channel = channel;
 	path_data->oflag = oflag;
 	path_data->mode = mode;
-	path_data->pathlen = pathlen;
-	memcpy(path_data->path, path, pathlen + 1);
 	_dispatch_retain(queue);
 	_dispatch_retain(channel);
 	dispatch_async(channel->queue, ^{
 		int err = 0;
-		struct stat st;
+		_dispatch_stat_t st;
 		_dispatch_io_syscall_switch_noerr(err,
 #if defined(_WIN32)
-			stat(path_data->path, &st),
+			_dispatch_stat(path_data->path, &st),
 #else
 			(path_data->oflag & O_NOFOLLOW) == O_NOFOLLOW
 #if __APPLE__
@@ -465,7 +487,7 @@ dispatch_io_create_with_path(dispatch_io_type_t type, const char *path,
 				if ((path_data->oflag & O_CREAT) &&
 						!_is_separator(*(path_data->path + path_data->pathlen - 1))) {
 					// Check parent directory
-					char *c = NULL;
+					dispatch_io_path_char_t *c = NULL;
 					for (ssize_t i = (ssize_t)path_data->pathlen - 1; i >= 0; i--) {
 						if (_is_separator(path_data->path[i])) {
 							c = &path_data->path[i];
@@ -476,7 +498,7 @@ dispatch_io_create_with_path(dispatch_io_type_t type, const char *path,
 					*c = 0;
 					int perr;
 					_dispatch_io_syscall_switch_noerr(perr,
-						stat(path_data->path, &st),
+						_dispatch_stat(path_data->path, &st),
 						case 0:
 							// Since the parent directory exists, open() will
 							// create a regular file after the fd_entry has
@@ -486,7 +508,7 @@ dispatch_io_create_with_path(dispatch_io_type_t type, const char *path,
 							break;
 					);
 #if defined(_WIN32)
-					*c = '\\';
+					*c = L'\\';
 #else
 					*c = '/';
 #endif
@@ -602,7 +624,11 @@ dispatch_io_create_with_io(dispatch_io_type_t type, dispatch_io_t in_channel,
 				mode_t mode = in_channel->fd_entry->stat.mode;
 				dev_t dev = in_channel->fd_entry->stat.dev;
 				size_t path_data_len = sizeof(struct dispatch_io_path_data_s) +
+#if defined(_WIN32)
+						sizeof(WCHAR) * (in_channel->fd_entry->path_data->pathlen + 1);
+#else
 						in_channel->fd_entry->path_data->pathlen + 1;
+#endif
 				dispatch_io_path_data_t path_data = malloc(path_data_len);
 				memcpy(path_data, in_channel->fd_entry->path_data,
 						path_data_len);
@@ -1292,7 +1318,7 @@ _dispatch_fd_entry_unguard(dispatch_fd_entry_t fd_entry) { (void)fd_entry; }
 #endif // DISPATCH_USE_GUARDED_FD
 
 static inline dispatch_fd_t
-_dispatch_fd_entry_guarded_open(dispatch_fd_entry_t fd_entry, const char *path,
+_dispatch_fd_entry_guarded_open(dispatch_fd_entry_t fd_entry, const dispatch_io_path_char_t *path,
 		int oflag, mode_t mode) {
 #if DISPATCH_USE_GUARDED_FD
 	guardid_t guard = (uintptr_t)fd_entry;
@@ -1333,7 +1359,7 @@ _dispatch_fd_entry_guarded_open(dispatch_fd_entry_t fd_entry, const char *path,
 	} else if (oflag & _O_TRUNC) {
 		dwCreationDisposition = TRUNCATE_EXISTING;
 	}
-	return (dispatch_fd_t)CreateFile(path, dwDesiredAccess,
+	return (dispatch_fd_t)CreateFileW(path, dwDesiredAccess,
 			FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
 			dwCreationDisposition, 0, NULL);
 #else
@@ -1597,7 +1623,11 @@ _dispatch_fd_entry_create_with_path(dispatch_io_path_data_t path_data,
 	// On devs lock queue
 	dispatch_fd_entry_t fd_entry = _dispatch_fd_entry_create(
 			path_data->channel->queue);
+#if defined(_WIN32)
+	_dispatch_fd_entry_debug("create: path %S", fd_entry, path_data->path);
+#else
 	_dispatch_fd_entry_debug("create: path %s", fd_entry, path_data->path);
+#endif
 	if (S_ISREG(mode)) {
 #if defined(_WIN32)
 		_dispatch_disk_init(fd_entry, 0);
