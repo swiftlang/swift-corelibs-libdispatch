@@ -19,6 +19,9 @@ public final class DispatchSpecificKey<T> {
 	public init() {}
 }
 
+extension DispatchSpecificKey : Sendable where T : Sendable {
+}
+
 internal class _DispatchSpecificValue<T> {
 	internal let value: T
 	internal init(value: T) { self.value = value }
