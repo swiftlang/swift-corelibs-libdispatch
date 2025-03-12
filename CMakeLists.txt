@@ -232,7 +232,7 @@ else()
   set(USE_MACH_SEM 0)
 endif()
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-  add_compile_definitions($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:USE_WIN32_SEM>)
+  add_compile_definitions($<$<COMPILE_LANGUAGE:C,CXX>:USE_WIN32_SEM>)
 endif()
 check_library_exists(pthread sem_init "" USE_POSIX_SEM)
 # NOTE: android has not always provided a libpthread, but uses the pthreads API
@@ -262,7 +262,7 @@ check_symbol_exists(VQ_FREE_SPACE_CHANGE "sys/mount.h" HAVE_DECL_VQ_FREE_SPACE_C
 check_symbol_exists(strlcpy "string.h" HAVE_STRLCPY)
 check_symbol_exists(program_invocation_name "errno.h" HAVE_DECL_PROGRAM_INVOCATION_SHORT_NAME)
 if (HAVE_DECL_PROGRAM_INVOCATION_SHORT_NAME)
-  add_compile_definitions($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:_GNU_SOURCE=1>)
+  add_compile_definitions($<$<COMPILE_LANGUAGE:C,CXX>:_GNU_SOURCE=1>)
 endif()
 check_symbol_exists(__printflike "bsd/sys/cdefs.h" HAVE_PRINTFLIKE)
 
@@ -271,7 +271,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL Android)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL FreeBSD)
-  add_compile_definitions($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:_WITH_DPRINTF>)
+  add_compile_definitions($<$<COMPILE_LANGUAGE:C,CXX>:_WITH_DPRINTF>)
 endif()
 
 if(ENABLE_DTRACE)
@@ -282,9 +282,9 @@ if(ENABLE_DTRACE)
 endif()
 
 if(dtrace_EXECUTABLE)
-  add_compile_definitions($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:DISPATCH_USE_DTRACE=1>)
+  add_compile_definitions($<$<COMPILE_LANGUAGE:C,CXX>:DISPATCH_USE_DTRACE=1>)
 else()
-  add_compile_definitions($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:DISPATCH_USE_DTRACE=0>)
+  add_compile_definitions($<$<COMPILE_LANGUAGE:C,CXX>:DISPATCH_USE_DTRACE=0>)
 endif()
 
 find_program(leaks_EXECUTABLE leaks)
@@ -294,16 +294,16 @@ endif()
 
 
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-  add_compile_options($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/dispatch/darwin/module.modulemap>
-                      $<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/private/darwin/module.modulemap>)
+  add_compile_options($<:$<COMPILE_LANGUAGE:C,CXX>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/dispatch/darwin/module.modulemap>
+                      $<:$<COMPILE_LANGUAGE:C,CXX>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/private/darwin/module.modulemap>)
 else()
-  add_compile_options($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/dispatch/generic/module.modulemap>
-                      $<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/private/generic/module.modulemap>)
+  add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/dispatch/generic/module.modulemap>
+                      $<$<COMPILE_LANGUAGE:C,CXX>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/private/generic/module.modulemap>)
 endif()
 
 configure_file("${PROJECT_SOURCE_DIR}/cmake/config.h.in"
                "${PROJECT_BINARY_DIR}/config/config_ac.h")
-add_compile_definitions($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:HAVE_CONFIG_H>)
+add_compile_definitions($<$<COMPILE_LANGUAGE:C,CXX>:HAVE_CONFIG_H>)
 
 
 if(ENABLE_SWIFT)
