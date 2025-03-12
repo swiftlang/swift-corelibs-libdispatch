@@ -13,7 +13,7 @@ project(dispatch
   VERSION 1.3
   LANGUAGES C CXX)
 
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+if(WIN32)
   include(CheckCSourceCompiles)
   include(CheckSymbolExists)
 
@@ -132,7 +132,7 @@ set(USE_LIBDISPATCH_INIT_CONSTRUCTOR ${ENABLE_DISPATCH_INIT_CONSTRUCTOR})
 
 option(ENABLE_DTRACE "enable dtrace support" "")
 
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin OR CMAKE_SYSTEM_NAME STREQUAL FreeBSD)
+if(APPLE OR BSD)
   set(ENABLE_INTERNAL_PTHREAD_WORKQUEUES_DEFAULT OFF)
 else()
   set(ENABLE_INTERNAL_PTHREAD_WORKQUEUES_DEFAULT ON)
@@ -176,7 +176,7 @@ if(__BUILTIN_TRAP)
   set(HAVE_NORETURN_BUILTIN_TRAP 1)
 endif()
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL Android)
+if(NOT ANDROID)
   find_package(LibRT)
 endif()
 
@@ -231,12 +231,12 @@ if(HAVE_MACH)
 else()
   set(USE_MACH_SEM 0)
 endif()
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+if(WIN32)
   add_compile_definitions($<$<COMPILE_LANGUAGE:C,CXX>:USE_WIN32_SEM>)
 endif()
 check_library_exists(pthread sem_init "" USE_POSIX_SEM)
 # NOTE: android has not always provided a libpthread, but uses the pthreads API
-if(CMAKE_SYSTEM_NAME STREQUAL Android)
+if(ANDROID)
   set(USE_POSIX_SEM 1)
 endif()
 
@@ -266,11 +266,11 @@ if (HAVE_DECL_PROGRAM_INVOCATION_SHORT_NAME)
 endif()
 check_symbol_exists(__printflike "bsd/sys/cdefs.h" HAVE_PRINTFLIKE)
 
-if(CMAKE_SYSTEM_NAME STREQUAL Android)
+if(ANDROID)
   set(ENABLE_DTRACE_DEFAULT OFF)
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL FreeBSD)
+if(BSD)
   add_compile_definitions($<$<COMPILE_LANGUAGE:C,CXX>:_WITH_DPRINTF>)
 endif()
 
@@ -293,7 +293,7 @@ if(leaks_EXECUTABLE)
 endif()
 
 
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+if(APPLE)
   add_compile_options($<:$<COMPILE_LANGUAGE:C,CXX>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/dispatch/darwin/module.modulemap>
                       $<:$<COMPILE_LANGUAGE:C,CXX>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/private/darwin/module.modulemap>)
 else()
@@ -308,7 +308,7 @@ add_compile_definitions($<$<COMPILE_LANGUAGE:C,CXX>:HAVE_CONFIG_H>)
 
 if(ENABLE_SWIFT)
   if(NOT SWIFT_SYSTEM_NAME)
-    if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+    if(APPLE)
       set(SWIFT_SYSTEM_NAME macosx)
     else()
       set(SWIFT_SYSTEM_NAME "$<LOWER_CASE:${CMAKE_SYSTEM_NAME}>")
