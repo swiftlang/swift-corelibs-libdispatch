@@ -1,5 +1,5 @@
 
-cmake_minimum_required(VERSION 3.15.1)
+cmake_minimum_required(VERSION 3.26...3.29)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
@@ -12,10 +12,6 @@ endif()
 project(dispatch
   VERSION 1.3
   LANGUAGES C CXX)
-
-if("${CMAKE_C_SIMULATE_ID}" STREQUAL "MSVC")
-  include(ClangClCompileRules)
-endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL Windows)
   include(CheckCSourceCompiles)
