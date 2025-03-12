@@ -118,7 +118,6 @@ include(DispatchAppleOptions)
 include(DispatchSanitization)
 include(DispatchCompilerWarnings)
 include(DTrace)
-include(SwiftSupport)
 
 # NOTE(abdulras) this is the CMake supported way to control whether we generate
 # shared or static libraries.  This impacts the behaviour of `add_library` in
@@ -157,6 +156,14 @@ option(INSTALL_PRIVATE_HEADERS "installs private headers in the same location as
 option(ENABLE_SWIFT "enable libdispatch swift overlay" OFF)
 if(ENABLE_SWIFT)
   enable_language(Swift)
+
+  include(PlatformInfo)
+
+  option(Dispatch_INSTALL_NESTED_SUBDIR "Install libraries under a platform and architecture subdirectory" NO)
+  set(Dispatch_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}/swift$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:_static>/${Dispatch_PLATFORM_SUBDIR}$<$<BOOL:${Dispatch_INSTALL_NESTED_SUBDIR}>:/${Dispatch_ARCH_SUBDIR}>")
+  set(Dispatch_INSTALL_SWIFTMODULEDIR "${CMAKE_INSTALL_LIBDIR}/swift$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:_static>/${Dispatch_PLATFORM_SUBDIR}$<$<BOOL:${Dispatch_INSTALL_NESTED_SUBDIR}>:/${Dispatch_ARCH_SUBDIR}>")
+else()
+  set(Dispatch_INSTALL_LIBDIR ${CMAKE_INSTALL_LIBDIR})
 endif()
 
 option(ENABLE_THREAD_LOCAL_STORAGE "enable usage of thread local storage via _Thread_local" ON)
@@ -307,20 +314,10 @@ add_compile_definitions($<$<COMPILE_LANGUAGE:C,CXX>:HAVE_CONFIG_H>)
 
 
 if(ENABLE_SWIFT)
-  if(NOT SWIFT_SYSTEM_NAME)
-    if(APPLE)
-      set(SWIFT_SYSTEM_NAME macosx)
-    else()
-      set(SWIFT_SYSTEM_NAME "$<LOWER_CASE:${CMAKE_SYSTEM_NAME}>")
-    endif()
-  endif()
-
-  set(INSTALL_TARGET_DIR "${CMAKE_INSTALL_LIBDIR}/swift$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:_static>/${SWIFT_SYSTEM_NAME}" CACHE PATH "Path where the libraries will be installed")
   set(INSTALL_DISPATCH_HEADERS_DIR "${CMAKE_INSTALL_LIBDIR}/swift$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:_static>/dispatch" CACHE PATH "Path where the headers will be installed for libdispatch")
   set(INSTALL_BLOCK_HEADERS_DIR "${CMAKE_INSTALL_LIBDIR}/swift$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:_static>/Block" CACHE PATH "Path where the headers will be installed for the blocks runtime")
   set(INSTALL_OS_HEADERS_DIR "${CMAKE_INSTALL_LIBDIR}/swift$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:_static>/os" CACHE PATH "Path where the os/ headers will be installed")
 else()
-  set(INSTALL_TARGET_DIR "${CMAKE_INSTALL_LIBDIR}" CACHE PATH "Path where the libraries will be installed")
   set(INSTALL_DISPATCH_HEADERS_DIR "include/dispatch" CACHE PATH "Path where the headers will be installed")
   set(INSTALL_BLOCK_HEADERS_DIR "include" CACHE PATH "Path where the headers will be installed for the blocks runtime")
   set(INSTALL_OS_HEADERS_DIR "include/os" CACHE PATH "Path where the headers will be installed")
