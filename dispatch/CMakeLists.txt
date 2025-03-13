@@ -1,5 +1,5 @@
 
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+if(APPLE)
   set(DISPATCH_MODULE_MAP ${PROJECT_SOURCE_DIR}/dispatch/darwin/module.modulemap)
 elseif(BUILD_SHARED_LIBS)
   set(DISPATCH_MODULE_MAP ${PROJECT_SOURCE_DIR}/dispatch/generic/module.modulemap)

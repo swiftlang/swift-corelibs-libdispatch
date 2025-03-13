@@ -2,7 +2,7 @@
 add_library(BlocksRuntime
   data.c
   runtime.c)
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+if(WIN32)
   target_sources(BlocksRuntime PRIVATE
     BlocksRuntime.def)
 
@@ -37,6 +37,6 @@ endif()
 set_property(GLOBAL APPEND PROPERTY DISPATCH_EXPORTS BlocksRuntime)
 install(TARGETS BlocksRuntime
         EXPORT dispatchExports
-        ARCHIVE DESTINATION ${INSTALL_TARGET_DIR}
-        LIBRARY DESTINATION ${INSTALL_TARGET_DIR}
+        ARCHIVE DESTINATION ${Dispatch_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${Dispatch_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

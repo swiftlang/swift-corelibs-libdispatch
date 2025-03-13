@@ -2,7 +2,7 @@
 set(DISPATCH_USE_SANITIZER "" CACHE STRING
     "Define the sanitizer used to build binaries and tests.")
 
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin AND DISPATCH_USE_SANITIZER)
+if(APPLE AND DISPATCH_USE_SANITIZER)
   message(FATAL_ERROR "building libdispatch with sanitization is not supported on Darwin")
 endif()
 

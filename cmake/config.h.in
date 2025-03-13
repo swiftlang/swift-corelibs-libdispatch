@@ -257,3 +257,6 @@
 
 /* Define if using Darwin $NOCANCEL */
 #cmakedefine __DARWIN_NON_CANCELABLE
+
+/* Define to 1 if you have the `strlcpy` function. */
+#cmakedefine01 HAVE_STRLCPY
