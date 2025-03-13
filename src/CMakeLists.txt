@@ -88,10 +88,6 @@ if(HAVE_OBJC)
     swift/DispatchStubs.cc)
 endif()
 
-
-set_target_properties(dispatch PROPERTIES
-  POSITION_INDEPENDENT_CODE YES)
-
 target_include_directories(dispatch PUBLIC
   ${PROJECT_BINARY_DIR}
   ${PROJECT_SOURCE_DIR}
@@ -169,10 +165,6 @@ if(APPLE)
     "-Xlinker -current_version -Xlinker ${VERSION}"
     "-Xlinker -dead_strip"
     "-Xlinker -alias_list -Xlinker ${PROJECT_SOURCE_DIR}/xcodeconfig/libdispatch.aliases")
-endif()
-
-if(NOT APPLE)
-  set_target_properties(dispatch PROPERTIES INSTALL_RPATH "$ORIGIN")
 endif()
 
 if(LINKER_SUPPORTS_BUILD_ID)

@@ -3,8 +3,6 @@ if(HAVE_OBJC)
     DispatchStubs.cc)
   target_include_directories(DispatchStubs PRIVATE
     ${PROJECT_SOURCE_DIR})
-  set_target_properties(DispatchStubs PROPERTIES
-    POSITION_INDEPENDENT_CODE YES)
 endif()
 
 add_library(swiftDispatch
@@ -35,7 +33,6 @@ target_link_libraries(swiftDispatch PUBLIC
   dispatch)
 if(NOT DARWIN AND NOT WIN32)
   target_link_options(swiftDispatch PRIVATE "SHELL:-no-toolchain-stdlib-rpath")
-  set_target_properties(swiftDispatch PROPERTIES INSTALL_RPATH "$ORIGIN")
 endif()
 
 set_property(GLOBAL APPEND PROPERTY DISPATCH_EXPORTS swiftDispatch)
