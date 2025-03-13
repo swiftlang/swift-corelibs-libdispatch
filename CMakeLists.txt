@@ -3,12 +3,6 @@ cmake_minimum_required(VERSION 3.26...3.29)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
-# NOTE(compnerd) enable CMP0091 - select MSVC runtime based on
-# CMAKE_MSVC_RUNTIME_LIBRARY.  Requires CMake 3.15 or newer.
-if(POLICY CMP0091)
-  cmake_policy(SET CMP0091 NEW)
-endif()
-
 project(dispatch
   VERSION 1.3
   LANGUAGES C CXX)
