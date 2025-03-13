@@ -3,7 +3,6 @@ module Dispatch {
 	export *
 	link "dispatch"
 	link "BlocksRuntime"
-	link "DispatchStubs"
 }
 
 module DispatchIntrospection [system] [extern_c] {
