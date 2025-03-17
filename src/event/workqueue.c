@@ -257,7 +257,7 @@ _dispatch_workq_count_runnable_workers(dispatch_workq_monitor_t mon)
 {
 	struct kinfo_proc kp[WORKQ_MAX_TRACKED_TIDS];
 	size_t size;
-  int count, runners = 0;
+	int count, runners = 0;
 	int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_PID | KERN_PROC_INC_THREAD, (int)getpid()};
 
 	// get size we need
