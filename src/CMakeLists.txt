@@ -82,18 +82,11 @@ if(ENABLE_DTRACE)
 endif()
 
 if(HAVE_OBJC)
-  # TODO(compnerd) split DispatchStubs.cc into a separate component for the ObjC
-  # registration and a separate component for the swift compiler's emission of a
-  # call to the ObjC autorelease elision entry point.
   target_sources(dispatch PRIVATE
     data.m
     object.m
-    swift/DispatchStubs.cc)
+    swift/DispatchStubs.m)
 endif()
-
-
-set_target_properties(dispatch PROPERTIES
-  POSITION_INDEPENDENT_CODE YES)
 
 target_include_directories(dispatch PUBLIC
   ${PROJECT_BINARY_DIR}

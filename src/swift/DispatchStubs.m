@@ -11,13 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include <dispatch/dispatch.h>
-#include <stdio.h>
-
-#if defined(__ELF__) || defined(__MACH__) || defined(__WASM__)
-#define DISPATCH_RUNTIME_STDLIB_INTERFACE __attribute__((__visibility__("default")))
-#else
-#define DISPATCH_RUNTIME_STDLIB_INTERFACE __declspec(dllexport)
-#endif
 
 #if USE_OBJC
 @protocol OS_dispatch_source;
@@ -34,11 +27,9 @@
 @protocol OS_dispatch_source_vnode;
 @protocol OS_dispatch_source_write;
 
-// #include <dispatch/private.h>
-__attribute__((constructor))
+__attribute__((__constructor__))
 static void _dispatch_overlay_constructor() {
-  Class source = objc_lookUpClass("OS_dispatch_source");
-  if (source) {
+  if (Class source = objc_lookUpClass("OS_dispatch_source")) {
     class_addProtocol(source, @protocol(OS_dispatch_source));
     class_addProtocol(source, @protocol(OS_dispatch_source_mach_send));
     class_addProtocol(source, @protocol(OS_dispatch_source_mach_recv));
@@ -54,5 +45,4 @@ static void _dispatch_overlay_constructor() {
     class_addProtocol(source, @protocol(OS_dispatch_source_write));
   }
 }
-
 #endif /* USE_OBJC */
