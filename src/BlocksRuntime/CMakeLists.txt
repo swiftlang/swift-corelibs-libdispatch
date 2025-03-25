@@ -19,9 +19,6 @@ if(HAVE_OBJC AND CMAKE_DL_LIBS)
     ${CMAKE_DL_LIBS})
 endif()
 
-set_target_properties(BlocksRuntime PROPERTIES
-  POSITION_INDEPENDENT_CODE TRUE)
-
 if(LINKER_SUPPORTS_BUILD_ID)
   target_link_options(BlocksRuntime PRIVATE "LINKER:--build-id=sha1")
 endif()

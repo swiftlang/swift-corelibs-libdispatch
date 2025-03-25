@@ -1,9 +1,9 @@
-add_library(DispatchStubs STATIC
-  DispatchStubs.cc)
-target_include_directories(DispatchStubs PRIVATE
-  ${PROJECT_SOURCE_DIR})
-set_target_properties(DispatchStubs PROPERTIES
-  POSITION_INDEPENDENT_CODE YES)
+if(HAVE_OBJC)
+  add_library(DispatchStubs STATIC
+    DispatchStubs.m)
+  target_include_directories(DispatchStubs PRIVATE
+    ${PROJECT_SOURCE_DIR})
+endif()
 
 add_library(swiftDispatch
   Block.swift
@@ -27,10 +27,14 @@ set_target_properties(swiftDispatch PROPERTIES
   Swift_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/swift
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR}/swift)
 target_link_libraries(swiftDispatch PRIVATE
-  DispatchStubs
+  $<$<BOOL:${HAVE_OBJC}>:DispatchStubs>
   BlocksRuntime::BlocksRuntime)
 target_link_libraries(swiftDispatch PUBLIC
   dispatch)
+if(NOT CMAKE_SYSTEM_NAME MATCHES "Darwin|Windows")
+  target_link_options(swiftDispatch PRIVATE "SHELL:-no-toolchain-stdlib-rpath")
+  set_target_properties(swiftDispatch PROPERTIES INSTALL_RPATH "$ORIGIN")
+endif()
 
 get_swift_host_arch(swift_arch)
 install(FILES
@@ -43,12 +47,9 @@ install(TARGETS swiftDispatch
   ARCHIVE DESTINATION ${INSTALL_TARGET_DIR}
   LIBRARY DESTINATION ${INSTALL_TARGET_DIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-if(NOT BUILD_SHARED_LIBS)
+if(HAVE_OBJC AND NOT BUILD_SHARED_LIBS)
   set_property(GLOBAL APPEND PROPERTY DISPATCH_EXPORTS DispatchStubs)
   install(TARGETS DispatchStubs
     EXPORT dispatchExports
     DESTINATION ${INSTALL_TARGET_DIR})
-elseif(NOT CMAKE_SYSTEM_NAME MATCHES "Darwin|Windows")
-  target_link_options(swiftDispatch PRIVATE "SHELL:-no-toolchain-stdlib-rpath")
-  set_target_properties(swiftDispatch PROPERTIES INSTALL_RPATH "$ORIGIN")
 endif()

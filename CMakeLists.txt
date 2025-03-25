@@ -13,6 +13,8 @@ project(dispatch
   VERSION 1.3
   LANGUAGES C CXX)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE YES)
+
 if("${CMAKE_C_SIMULATE_ID}" STREQUAL "MSVC")
   include(ClangClCompileRules)
 endif()
