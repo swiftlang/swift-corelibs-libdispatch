@@ -277,6 +277,9 @@ upcast(dispatch_object_t dou)
 #include <sys/sysctl.h>
 #include <sys/queue.h>
 #endif
+#if defined(__FreeBSD__)
+#include <sys/eventfd.h>
+#endif // __FreeBSD__
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/mman.h>

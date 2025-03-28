@@ -183,8 +183,12 @@ extension DispatchSource : DispatchSourceMachSend,
 #endif
 
 #if !os(Linux) && !os(Android) && !os(Windows)
-extension DispatchSource : DispatchSourceProcess,
-	DispatchSourceFileSystemObject {
+extension DispatchSource : DispatchSourceProcess {
+}
+#endif
+
+#if !os(Linux) && !os(Android) && !os(Windows) && !os(FreeBSD)
+extension DispatchSource : DispatchSourceFileSystemObject {
 }
 #endif
 

@@ -88,6 +88,11 @@ SWIFT_DISPATCH_SOURCE_TYPE(PROC)
 SWIFT_DISPATCH_SOURCE_TYPE(VNODE)
 #endif
 
+#if defined(__FreeBSD__)
+SWIFT_DISPATCH_SOURCE_TYPE(PROC)
+SWIFT_DISPATCH_SOURCE_TYPE(VNODE)
+#endif
+
 extern void
 _swift_dispatch_source_create_abort(void);
 
