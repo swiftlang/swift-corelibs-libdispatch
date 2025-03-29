@@ -197,3 +197,9 @@ endif()
 
 # test-specific compile options
 set_target_properties(dispatch_c99 PROPERTIES C_STANDARD 99)
+
+if(CMAKE_SYSTEM_NAME STREQUAL Android)
+  configure_file(ctest-android.sh.in
+                 ${CMAKE_CURRENT_BINARY_DIR}/ctest-android.sh
+                 @ONLY NEWLINE_STYLE LF)
+endif()
