@@ -141,6 +141,28 @@ dispatch_assert_queue_barrier(dispatch_queue_t dq)
 	_dispatch_assert_queue_barrier_fail(dq);
 }
 
+bool
+dispatch_verify_current_queue_4swiftonly(dispatch_queue_t dq)
+{
+	// Implementation of this is pretty much the same as dispatch_assert_queue
+	// however, rather than crashing, we return true if we are on the queue, or
+	// false otherwise
+	unsigned long metatype = dx_metatype(dq);
+	if (unlikely(metatype != _DISPATCH_LANE_TYPE &&
+			metatype != _DISPATCH_WORKLOOP_TYPE)) {
+		DISPATCH_CLIENT_CRASH(metatype, "invalid queue passed to "
+				"dispatch_assert_queue()");
+			}
+	uint64_t dq_state = os_atomic_load2o(dq, dq_state, relaxed);
+	if (likely(_dq_state_drain_locked_by_self(dq_state))) {
+		return true;
+	}
+	if (likely(_dispatch_thread_frame_find_queue(dq))) {
+		return true;
+	}
+	return false;
+}
+
 #pragma mark -
 #pragma mark _dispatch_set_priority_and_mach_voucher
 #if HAVE_PTHREAD_WORKQUEUE_QOS

@@ -1528,6 +1528,23 @@ void
 dispatch_assert_queue_not(dispatch_queue_t queue)
 		DISPATCH_ALIAS_V2(dispatch_assert_queue_not);
 
+/*!
+ * @function dispatch_verify_current_queue_4swiftonly
+ *
+ * @abstract
+ * Private SPI for use only by Swift concurrency runtime.
+ * Similar to dispatch_assert_queue, however rather than crash,
+ * when not on the expected queue, returns false.
+ *
+ * @param queue
+ * The dispatch queue that the current block is expected not to run on.
+ * The result of passing NULL in this parameter is undefined.
+ */
+DISPATCH_EXPORT DISPATCH_NONNULL1
+bool
+dispatch_verify_current_queue_4swiftonly(dispatch_queue_t queue)
+		DISPATCH_ALIAS_V2(dispatch_verify_current_queue_4swiftonly);
+
 #ifdef NDEBUG
 #define dispatch_assert_queue_debug(q) ((void)(0 && (q)))
 #define dispatch_assert_queue_barrier_debug(q) ((void)(0 && (q)))
