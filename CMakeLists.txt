@@ -262,7 +262,7 @@ if (HAVE_DECL_PROGRAM_INVOCATION_SHORT_NAME)
 endif()
 check_symbol_exists(__printflike "bsd/sys/cdefs.h" HAVE_PRINTFLIKE)
 
-if(aNDROID)
+if(ANDROID)
   set(ENABLE_DTRACE_DEFAULT OFF)
 endif()
 
