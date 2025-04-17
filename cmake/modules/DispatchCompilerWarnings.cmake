@@ -69,7 +69,7 @@ else()
   add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-Wno-void-pointer-to-int-cast>)
   add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-Wno-vla>)
 
-  if(CMAKE_SYSTEM_NAME STREQUAL Android)
+  if(ANDROID)
     add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-Wno-incompatible-function-pointer-types>)
     add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-Wno-implicit-function-declaration>)
     add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-Wno-conversion>)

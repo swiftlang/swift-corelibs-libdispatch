@@ -2,7 +2,7 @@
 add_library(BlocksRuntime
   data.c
   runtime.c)
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+if(WIN32)
   target_sources(BlocksRuntime PRIVATE
     BlocksRuntime.def)
 
