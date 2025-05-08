@@ -1,18 +1,10 @@
 cmake_minimum_required(VERSION 3.26...3.29)
 
-if(POLICY CMP0157)
-    if(CMAKE_HOST_SYSTEM_NAME STREQUAL Windows AND CMAKE_SYSTEM_NAME STREQUAL Android)
-        # CMP0157 causes libdispatch to fail to compile when targetting
-        # Android on Windows due to swift-driver not being present during the
-        # toolchain build. Disable it for now.
-        cmake_policy(SET CMP0157 OLD)
-    else()
-        # New Swift build model: improved incremental build performance and LSP support
-        cmake_policy(SET CMP0157 NEW)
-    endif()
-endif()
-
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
+
+if(POLICY CMP0157 AND CMAKE_Swift_COMPILER_USE_OLD_DRIVER)
+  cmake_policy(SET CMP0157 OLD)
+endif()
 
 project(dispatch
   VERSION 1.3
