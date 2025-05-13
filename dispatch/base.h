@@ -178,24 +178,24 @@
 #endif
 #endif
 
+#ifndef DISPATCH_EXTERN
+# if defined(__cplusplus)
+#   define DISPATCH_EXTERN extern "C"
+# else
+#   define DISPATCH_EXTERN extern
+# endif
+#endif
+
 #if defined(_WIN32)
 #if defined(__DISPATCH_BUILDING_DISPATCH__)
-#if defined(__cplusplus)
-#define DISPATCH_EXPORT extern "C" __declspec(dllexport)
+#define DISPATCH_EXPORT DISPATCH_EXTERN __declspec(dllexport)
 #else
-#define DISPATCH_EXPORT extern __declspec(dllexport)
-#endif
-#else
-#if defined(__cplusplus)
-#define DISPATCH_EXPORT extern "C" __declspec(dllimport)
-#else
-#define DISPATCH_EXPORT extern __declspec(dllimport)
-#endif
+#define DISPATCH_EXPORT DISPATCH_EXTERN __declspec(dllimport)
 #endif
 #elif __GNUC__
-#define DISPATCH_EXPORT extern __attribute__((visibility("default")))
+#define DISPATCH_EXPORT DISPATCH_EXTERN __attribute__((visibility("default")))
 #else
-#define DISPATCH_EXPORT extern
+#define DISPATCH_EXPORT DISPATCH_EXTERN
 #endif
 
 #if __GNUC__
