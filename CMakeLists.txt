@@ -117,7 +117,6 @@ include(DispatchAppleOptions)
 include(DispatchSanitization)
 include(DispatchCompilerWarnings)
 include(DTrace)
-include(SwiftSupport)
 
 # NOTE(abdulras) this is the CMake supported way to control whether we generate
 # shared or static libraries.  This impacts the behaviour of `add_library` in

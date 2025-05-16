@@ -1,3 +1,5 @@
+include(SwiftSupport)
+
 if(HAVE_OBJC)
   add_library(DispatchStubs STATIC
     DispatchStubs.m)
@@ -36,11 +38,7 @@ if(NOT APPLE AND NOT WIN32)
   set_target_properties(swiftDispatch PROPERTIES INSTALL_RPATH "$ORIGIN")
 endif()
 
-get_swift_host_arch(swift_arch)
-install(FILES
-  ${CMAKE_CURRENT_BINARY_DIR}/swift/Dispatch.swiftmodule
-  ${CMAKE_CURRENT_BINARY_DIR}/swift/Dispatch.swiftdoc
-  DESTINATION ${INSTALL_TARGET_DIR}/${swift_arch})
+install_swift_module(swiftDispatch)
 set_property(GLOBAL APPEND PROPERTY DISPATCH_EXPORTS swiftDispatch)
 install(TARGETS swiftDispatch
   EXPORT dispatchExports
