@@ -23,6 +23,8 @@ add_library(bsdtests
             STATIC
               bsdtests.c
               dispatch_test.c)
+target_link_libraries(bsdtests PUBLIC
+  dispatch)
 target_include_directories(bsdtests
                            PRIVATE
                              ${CMAKE_CURRENT_BINARY_DIR}
