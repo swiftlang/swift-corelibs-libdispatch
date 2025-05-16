@@ -1,3 +1,5 @@
+include_guard()
+
 if(NOT dispatch_MODULE_TRIPLE)
   set(module_triple_command "${CMAKE_Swift_COMPILER}" -print-target-info)
   if(CMAKE_Swift_COMPILER_TARGET)
