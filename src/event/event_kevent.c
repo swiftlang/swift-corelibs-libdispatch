@@ -1088,7 +1088,7 @@ done:
 	dispatch_assume_zero(r);
 	return true;
 }
-#endif // DISPATCH_HAVE_DIRECT_KNOTES
+#endif
 
 #pragma mark dispatch_muxnote_t
 
@@ -1335,7 +1335,6 @@ enum {
 	DISPATCH_WORKLOOP_SYNC_END,
 };
 
-#if DISPATCH_USE_KEVENT_WORKLOOP
 static char const * const _dispatch_workloop_actions[] = {
 	[DISPATCH_WORKLOOP_ASYNC]                       = "async",
 	[DISPATCH_WORKLOOP_ASYNC_FROM_SYNC]             = "async (from sync)",
@@ -1352,7 +1351,7 @@ static char const * const _dispatch_workloop_actions[] = {
 	[DISPATCH_WORKLOOP_SYNC_WAKE]                   = "sync-wake",
 	[DISPATCH_WORKLOOP_SYNC_END]                    = "sync-end",
 };
-#endif // DISPATCH_USE_KEVENT_WORKLOOP
+#endif
 
 void
 _dispatch_event_loop_atfork_child(void)
