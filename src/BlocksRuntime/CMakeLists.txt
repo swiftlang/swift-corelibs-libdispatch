@@ -2,7 +2,7 @@
 add_library(BlocksRuntime
   data.c
   runtime.c)
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+if(WIN32)
   target_sources(BlocksRuntime PRIVATE
     BlocksRuntime.def)
 
@@ -18,9 +18,6 @@ if(HAVE_OBJC AND CMAKE_DL_LIBS)
   target_link_libraries(BlocksRuntime PUBLIC
     ${CMAKE_DL_LIBS})
 endif()
-
-set_target_properties(BlocksRuntime PROPERTIES
-  POSITION_INDEPENDENT_CODE TRUE)
 
 if(LINKER_SUPPORTS_BUILD_ID)
   target_link_options(BlocksRuntime PRIVATE "LINKER:--build-id=sha1")

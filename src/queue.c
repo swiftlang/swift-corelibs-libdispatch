@@ -6472,10 +6472,8 @@ _dispatch_runloop_handle_is_valid(dispatch_runloop_handle_t handle)
 {
 #if TARGET_OS_MAC
 	return MACH_PORT_VALID(handle);
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__unix__)
 	return handle >= 0;
-#elif defined(__FreeBSD__)
-	return handle > 0;
 #elif defined(_WIN32)
 	return handle != NULL;
 #else
@@ -6493,7 +6491,9 @@ _dispatch_runloop_queue_get_handle(dispatch_lane_t dq)
 	// decode: 0 is a valid fd, so offset by 1 to distinguish from NULL
 	return ((dispatch_runloop_handle_t)(uintptr_t)dq->do_ctxt) - 1;
 #elif defined(__FreeBSD__)
-  return (dispatch_runloop_handle_t)(uintptr_t)dq->do_ctxt;
+	return ((dispatch_runloop_handle_t)(uintptr_t)dq->do_ctxt);
+#elif defined(__unix__)
+	return ((dispatch_runloop_handle_t)(uintptr_t)dq->do_ctxt);
 #elif defined(_WIN32)
 	return ((dispatch_runloop_handle_t)(uintptr_t)dq->do_ctxt);
 #else
@@ -6512,6 +6512,8 @@ _dispatch_runloop_queue_set_handle(dispatch_lane_t dq,
 	// encode: 0 is a valid fd, so offset by 1 to distinguish from NULL
 	dq->do_ctxt = (void *)(uintptr_t)(handle + 1);
 #elif defined(__FreeBSD__)
+	dq->do_ctxt = (void *)(uintptr_t)handle;
+#elif defined(__unix__) && !defined(__linux__)
 	dq->do_ctxt = (void *)(uintptr_t)handle;
 #elif defined(_WIN32)
 	dq->do_ctxt = (void *)(uintptr_t)handle;
@@ -6953,7 +6955,7 @@ _dispatch_runloop_root_queue_wakeup_4CF(dispatch_queue_t dq)
 	_dispatch_runloop_queue_wakeup(upcast(dq)._dl, 0, false);
 }
 
-#if TARGET_OS_MAC || defined(_WIN32)
+#if TARGET_OS_MAC || defined(_WIN32) || defined(__OpenBSD__)
 dispatch_runloop_handle_t
 _dispatch_runloop_root_queue_get_port_4CF(dispatch_queue_t dq)
 {
@@ -7343,6 +7345,13 @@ static inline pid_t
 _gettid(void)
 {
 	return (pid_t)pthread_getthreadid_np();
+}
+#elif defined(__OpenBSD__)
+DISPATCH_ALWAYS_INLINE
+static inline pid_t
+_gettid(void)
+{
+	return getthrid();
 }
 #elif defined(_WIN32)
 DISPATCH_ALWAYS_INLINE

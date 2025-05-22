@@ -1,5 +1,5 @@
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
+if(NOT APPLE)
   add_subdirectory(BlocksRuntime)
 endif()
 
@@ -57,7 +57,7 @@ add_library(dispatch
   shims/yield.c
   shims/yield.h)
 
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+if(WIN32)
   target_sources(dispatch PRIVATE
     shims/generic_sys_queue.h
     shims/generic_win_stubs.c
@@ -82,18 +82,11 @@ if(ENABLE_DTRACE)
 endif()
 
 if(HAVE_OBJC)
-  # TODO(compnerd) split DispatchStubs.cc into a separate component for the ObjC
-  # registration and a separate component for the swift compiler's emission of a
-  # call to the ObjC autorelease elision entry point.
   target_sources(dispatch PRIVATE
     data.m
     object.m
-    swift/DispatchStubs.cc)
+    swift/DispatchStubs.m)
 endif()
-
-
-set_target_properties(dispatch PROPERTIES
-  POSITION_INDEPENDENT_CODE YES)
 
 target_include_directories(dispatch PUBLIC
   ${PROJECT_BINARY_DIR}
@@ -103,11 +96,11 @@ target_include_directories(dispatch PUBLIC
 target_include_directories(dispatch PRIVATE
   ${PROJECT_SOURCE_DIR}/private)
 
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+if(WIN32)
   target_compile_definitions(dispatch PRIVATE
     _CRT_NONSTDC_NO_WARNINGS
     _CRT_SECURE_NO_WARNINGS)
-elseif(CMAKE_SYSTEM_NAME STREQUAL Android)
+elseif(ANDROID)
   target_compile_options(dispatch PRIVATE
     -U_GNU_SOURCE)
 endif()
@@ -157,7 +150,7 @@ target_link_libraries(dispatch PRIVATE
   Threads::Threads)
 target_link_libraries(dispatch PUBLIC
   BlocksRuntime::BlocksRuntime)
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+if(WIN32)
   target_link_libraries(dispatch PRIVATE
     AdvAPI32
     ShLwApi
@@ -166,7 +159,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL Windows)
     synchronization)
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+if(APPLE)
   set_property(TARGET dispatch APPEND_STRING PROPERTY LINK_FLAGS
     "-Xlinker -compatibility_version -Xlinker 1"
     "-Xlinker -current_version -Xlinker ${VERSION}"
@@ -174,7 +167,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     "-Xlinker -alias_list -Xlinker ${PROJECT_SOURCE_DIR}/xcodeconfig/libdispatch.aliases")
 endif()
 
-if(NOT CMAKE_SYSTEM_NAME MATCHES "Darwin|Windows")
+if(NOT APPLE AND NOT WIN32)
   set_target_properties(dispatch PROPERTIES INSTALL_RPATH "$ORIGIN")
 endif()
 

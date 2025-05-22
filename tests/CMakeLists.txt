@@ -1,5 +1,5 @@
 
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+if(WIN32)
     execute_process(COMMAND
                       "${CMAKE_COMMAND}" -E copy_directory "${PROJECT_SOURCE_DIR}/private"
                       "${CMAKE_CURRENT_BINARY_DIR}/dispatch")
@@ -15,7 +15,7 @@ else()
                       "${CMAKE_CURRENT_BINARY_DIR}/leaks-wrapper")
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL Linux)
+if(LINUX)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lrt")
 endif()
 
@@ -92,8 +92,7 @@ function(add_unit_test name)
   # fails with the multiple definition errors seen in android/ndk#176, so I
   # pulled in this workaround noted there. The tests build and run with this
   # flag applied.
-  if(NOT BUILD_SHARED_LIBS AND CMAKE_SYSTEM_NAME STREQUAL Android AND
-     CMAKE_SYSTEM_PROCESSOR STREQUAL armv7-a)
+  if(NOT BUILD_SHARED_LIBS AND ANDROID AND CMAKE_SYSTEM_PROCESSOR STREQUAL armv7-a)
     target_link_options(${name} PRIVATE "LINKER:--allow-multiple-definition")
   endif()
   target_link_libraries(${name}
@@ -162,7 +161,7 @@ if(EXTENDED_TEST_SUITE)
 endif()
 
 # add C tests for platform-specific functionality when applicable
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+if(APPLE)
   list(APPEND DISPATCH_C_TESTS
        deadname
        proc
@@ -182,6 +181,12 @@ set_tests_properties(dispatch_io_pipe_close PROPERTIES TIMEOUT 5)
 # test dispatch API for various C/CXX language variants
 add_unit_test(dispatch_c99 SOURCES dispatch_c99.c)
 add_unit_test(dispatch_plusplus SOURCES dispatch_plusplus.cpp)
+
+if (DISPATCH_USE_INTERNAL_WORKQUEUE)
+  add_unit_test(dispatch_workqueue
+                SOURCES
+                  dispatch_workqueue.c)
+endif()
 
 # test-specific link options
 if(WIN32)

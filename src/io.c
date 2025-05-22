@@ -406,9 +406,13 @@ dispatch_io_create_f(dispatch_io_type_t type, dispatch_fd_t fd,
 }
 
 #if defined(_WIN32)
-#define _is_separator(ch) ((ch) == '/' || (ch) == '\\')
+#define _is_separator(ch) ((ch) == L'/' || (ch) == L'\\')
+#define _dispatch_stat _wstati64
+typedef struct _stati64 _dispatch_stat_t;
 #else
 #define _is_separator(ch) ((ch) == '/')
+#define _dispatch_stat stat
+typedef struct stat _dispatch_stat_t;
 #endif
 
 dispatch_io_t
@@ -423,16 +427,36 @@ dispatch_io_create_with_path(dispatch_io_type_t type, const char *path,
 	if (PathIsRelativeA(path)) {
 		return DISPATCH_BAD_INPUT;
 	}
+	int cchLength = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, NULL, 0);
+	if (!cchLength) {
+		dispatch_assert(GetLastError() == ERROR_NO_UNICODE_TRANSLATION);
+		return DISPATCH_BAD_INPUT;
+	}
+	dispatch_io_path_data_t path_data = malloc(sizeof(*path_data) + sizeof(WCHAR) * cchLength);
+	if (!path_data) {
+		return DISPATCH_OUT_OF_MEMORY;
+	}
+	path_data->pathlen = cchLength - 1; // Don't include terminating null character
+	cchLength = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, path_data->path, cchLength);
+	if (!cchLength) {
+		free(path_data);
+		// We already checked the input when measuring buffer length.
+		// Any error at this point seems fatal.
+		DISPATCH_INTERNAL_CRASH(GetLastError(), "MultiByteToWideChar");
+		return DISPATCH_BAD_INPUT;
+	}
 #else
 	if (!_is_separator(*path)) {
 		return DISPATCH_BAD_INPUT;
 	}
-#endif
 	size_t pathlen = strlen(path);
 	dispatch_io_path_data_t path_data = malloc(sizeof(*path_data) + pathlen+1);
 	if (!path_data) {
 		return DISPATCH_OUT_OF_MEMORY;
 	}
+	path_data->pathlen = pathlen;
+	memcpy(path_data->path, path, pathlen + 1);
+#endif
 	dispatch_io_t channel = _dispatch_io_create(type);
 	channel->fd = -1;
 	_dispatch_channel_debug("create with path %s", channel, path);
@@ -440,16 +464,14 @@ dispatch_io_create_with_path(dispatch_io_type_t type, const char *path,
 	path_data->channel = channel;
 	path_data->oflag = oflag;
 	path_data->mode = mode;
-	path_data->pathlen = pathlen;
-	memcpy(path_data->path, path, pathlen + 1);
 	_dispatch_retain(queue);
 	_dispatch_retain(channel);
 	dispatch_async(channel->queue, ^{
 		int err = 0;
-		struct stat st;
+		_dispatch_stat_t st;
 		_dispatch_io_syscall_switch_noerr(err,
 #if defined(_WIN32)
-			stat(path_data->path, &st),
+			_dispatch_stat(path_data->path, &st),
 #else
 			(path_data->oflag & O_NOFOLLOW) == O_NOFOLLOW
 #if __APPLE__
@@ -464,7 +486,7 @@ dispatch_io_create_with_path(dispatch_io_type_t type, const char *path,
 				if ((path_data->oflag & O_CREAT) &&
 						!_is_separator(*(path_data->path + path_data->pathlen - 1))) {
 					// Check parent directory
-					char *c = NULL;
+					dispatch_io_path_char_t *c = NULL;
 					for (ssize_t i = (ssize_t)path_data->pathlen - 1; i >= 0; i--) {
 						if (_is_separator(path_data->path[i])) {
 							c = &path_data->path[i];
@@ -475,7 +497,7 @@ dispatch_io_create_with_path(dispatch_io_type_t type, const char *path,
 					*c = 0;
 					int perr;
 					_dispatch_io_syscall_switch_noerr(perr,
-						stat(path_data->path, &st),
+						_dispatch_stat(path_data->path, &st),
 						case 0:
 							// Since the parent directory exists, open() will
 							// create a regular file after the fd_entry has
@@ -485,7 +507,7 @@ dispatch_io_create_with_path(dispatch_io_type_t type, const char *path,
 							break;
 					);
 #if defined(_WIN32)
-					*c = '\\';
+					*c = L'\\';
 #else
 					*c = '/';
 #endif
@@ -601,7 +623,11 @@ dispatch_io_create_with_io(dispatch_io_type_t type, dispatch_io_t in_channel,
 				mode_t mode = in_channel->fd_entry->stat.mode;
 				dev_t dev = in_channel->fd_entry->stat.dev;
 				size_t path_data_len = sizeof(struct dispatch_io_path_data_s) +
+#if defined(_WIN32)
+						sizeof(WCHAR) * (in_channel->fd_entry->path_data->pathlen + 1);
+#else
 						in_channel->fd_entry->path_data->pathlen + 1;
+#endif
 				dispatch_io_path_data_t path_data = malloc(path_data_len);
 				memcpy(path_data, in_channel->fd_entry->path_data,
 						path_data_len);
@@ -1291,7 +1317,7 @@ _dispatch_fd_entry_unguard(dispatch_fd_entry_t fd_entry) { (void)fd_entry; }
 #endif // DISPATCH_USE_GUARDED_FD
 
 static inline dispatch_fd_t
-_dispatch_fd_entry_guarded_open(dispatch_fd_entry_t fd_entry, const char *path,
+_dispatch_fd_entry_guarded_open(dispatch_fd_entry_t fd_entry, const dispatch_io_path_char_t *path,
 		int oflag, mode_t mode) {
 #if DISPATCH_USE_GUARDED_FD
 	guardid_t guard = (uintptr_t)fd_entry;
@@ -1332,7 +1358,7 @@ _dispatch_fd_entry_guarded_open(dispatch_fd_entry_t fd_entry, const char *path,
 	} else if (oflag & _O_TRUNC) {
 		dwCreationDisposition = TRUNCATE_EXISTING;
 	}
-	return (dispatch_fd_t)CreateFile(path, dwDesiredAccess,
+	return (dispatch_fd_t)CreateFileW(path, dwDesiredAccess,
 			FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
 			dwCreationDisposition, 0, NULL);
 #else
@@ -1436,20 +1462,20 @@ _dispatch_fd_entry_create_with_fd(dispatch_fd_t fd, uintptr_t hash)
 				int result = ioctlsocket((SOCKET)fd, (long)FIONBIO, &value);
 				(void)dispatch_assume_zero(result);
 			} else {
-				// Try to make writing nonblocking, although pipes not coming
-				// from Foundation.Pipe may not have FILE_WRITE_ATTRIBUTES.
+				// The _dispatch_pipe_monitor_thread expects pipes to be
+				// PIPE_WAIT and exploits this assumption by using a blocking
+				// 0-byte read as a synchronization mechanism.
 				DWORD dwPipeMode = 0;
 				if (GetNamedPipeHandleState((HANDLE)fd, &dwPipeMode, NULL,
-						NULL, NULL, NULL, 0) && !(dwPipeMode & PIPE_NOWAIT)) {
-					dwPipeMode |= PIPE_NOWAIT;
+						NULL, NULL, NULL, 0) && !(dwPipeMode & PIPE_WAIT)) {
+					dwPipeMode |= PIPE_WAIT;
 					if (!SetNamedPipeHandleState((HANDLE)fd, &dwPipeMode,
 							NULL, NULL)) {
-						// We may end up blocking on subsequent writes, but we
-						// don't have a good alternative.
-						// The WriteQuotaAvailable from NtQueryInformationFile
-						// erroneously returns 0 when there is a blocking read
-						// on the other end of the pipe.
-						_dispatch_fd_entry_debug("failed to set PIPE_NOWAIT",
+						// If setting the pipe to PIPE_WAIT fails, the
+						// monitoring thread will spin constantly, saturating
+						// a core, which is undesirable but non-fatal.
+						// The semantics will still be correct in this case.
+						_dispatch_fd_entry_debug("failed to set PIPE_WAIT",
 								fd_entry);
 					}
 				}
@@ -1596,7 +1622,11 @@ _dispatch_fd_entry_create_with_path(dispatch_io_path_data_t path_data,
 	// On devs lock queue
 	dispatch_fd_entry_t fd_entry = _dispatch_fd_entry_create(
 			path_data->channel->queue);
+#if defined(_WIN32)
+	_dispatch_fd_entry_debug("create: path %S", fd_entry, path_data->path);
+#else
 	_dispatch_fd_entry_debug("create: path %s", fd_entry, path_data->path);
+#endif
 	if (S_ISREG(mode)) {
 #if defined(_WIN32)
 		_dispatch_disk_init(fd_entry, 0);
@@ -2327,8 +2357,11 @@ _dispatch_operation_advise(dispatch_operation_t op, size_t chunk_size)
 		case ESPIPE: break; // fd refers to a pipe or FIFO
 		default: (void)dispatch_assume_zero(err); break;
 	}
+#elif defined(__OpenBSD__)
+	(void)err;
 #else
 #error "_dispatch_operation_advise not implemented on this platform"
+	(void)err;
 #endif // defined(F_RDADVISE)
 #endif // defined(_WIN32)
 }
@@ -2517,13 +2550,40 @@ syscall:
 				NTSTATUS status = _dispatch_NtQueryInformationFile(hFile,
 						&iosb, &fpli, sizeof(fpli), FilePipeLocalInformation);
 				if (NT_SUCCESS(status)) {
-					// WriteQuotaAvailable is unreliable in the presence
-					// of a blocking reader, when it can return zero, so only
-					// account for it otherwise
-					if (fpli.WriteQuotaAvailable > 0) {
-						len = MIN(len, fpli.WriteQuotaAvailable);
+					// WriteQuotaAvailable is the free space in the output buffer
+					// that has not already been reserved for reading. In other words,
+					// WriteQuotaAvailable =
+					//    OutboundQuota - WriteQuotaUsed - QueuedReadSize.
+					// It is not documented that QueuedReadSize is part of this
+					// calculation, but this behavior has been observed experimentally.
+					// Unfortunately, this means that it is not possible to distinguish
+					// between a full output buffer and a reader blocked waiting for a
+					// full buffer's worth of data. This is a problem because if the
+					// output buffer is full and no reader is waiting for data, then
+					// attempting to write to the buffer of a PIPE_WAIT, non-
+					// overlapped I/O pipe will block the dispatch queue thread.
+					//
+					// In order to work around this idiosyncrasy, we bound the size of
+					// the write to be OutboundQuota - 1. This affords us a sentinel value
+					// in WriteQuotaAvailable that can be used to detect if a reader is
+					// making progress or not.
+					// WriteQuotaAvailable = 0 => a reader is blocked waiting for data.
+					// WriteQuotaAvailable = 1 => the pipe has been written to, but no
+					//   reader is making progress.
+					// When we detect that WriteQuotaAvailable == 1, we write 0 bytes to
+					// avoid blocking the dispatch queue thread.
+					if (fpli.WriteQuotaAvailable == 0) {
+						// This condition can only occur when we have a reader blocked
+						// waiting for data on the pipe. In this case, write a full
+						// buffer's worth of data (less one byte to preserve this
+						// sentinel value of WriteQuotaAvailable == 0).
+						len = MIN(len, fpli.OutboundQuota - 1);
+					} else {
+						// Subtract 1 from WriteQuotaAvailable to ensure we do not fill
+						// the pipe and preserve the sentinel value of
+						// WriteQuotaAvailable == 1.
+						len = MIN(len, fpli.WriteQuotaAvailable - 1);
 					}
-					len = MIN(len, fpli.OutboundQuota);
 				}
 
 				OVERLAPPED ovlOverlapped = {};

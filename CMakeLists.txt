@@ -1,32 +1,18 @@
-
-cmake_minimum_required(VERSION 3.15.1)
+cmake_minimum_required(VERSION 3.26...3.29)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
-# NOTE(compnerd) enable CMP0091 - select MSVC runtime based on
-# CMAKE_MSVC_RUNTIME_LIBRARY.  Requires CMake 3.15 or newer.
-if(POLICY CMP0091)
-  cmake_policy(SET CMP0091 NEW)
+if(POLICY CMP0157 AND CMAKE_Swift_COMPILER_USE_OLD_DRIVER)
+  cmake_policy(SET CMP0157 OLD)
 endif()
 
 project(dispatch
   VERSION 1.3
   LANGUAGES C CXX)
 
-if("${CMAKE_C_SIMULATE_ID}" STREQUAL "MSVC")
-  include(ClangClCompileRules)
-endif()
+set(CMAKE_POSITION_INDEPENDENT_CODE YES)
 
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-  if(NOT MINGW)
-    include(DispatchWindowsSupport)
-    dispatch_windows_arch_spelling(${CMAKE_SYSTEM_PROCESSOR} DISPATCH_MSVC_ARCH)
-    dispatch_windows_include_for_arch(${DISPATCH_MSVC_ARCH} DISPATCH_INCLUDES)
-    include_directories(BEFORE SYSTEM ${DISPATCH_INCLUDES})
-    dispatch_windows_lib_for_arch(${CMAKE_SYSTEM_PROCESSOR} DISPATCH_LIBDIR)
-    link_directories(${DISPATCH_LIBDIR})
-  endif()
-
+if(WIN32)
   include(CheckCSourceCompiles)
   include(CheckSymbolExists)
 
@@ -131,7 +117,6 @@ include(DispatchAppleOptions)
 include(DispatchSanitization)
 include(DispatchCompilerWarnings)
 include(DTrace)
-include(SwiftSupport)
 
 # NOTE(abdulras) this is the CMake supported way to control whether we generate
 # shared or static libraries.  This impacts the behaviour of `add_library` in
@@ -145,7 +130,7 @@ set(USE_LIBDISPATCH_INIT_CONSTRUCTOR ${ENABLE_DISPATCH_INIT_CONSTRUCTOR})
 
 option(ENABLE_DTRACE "enable dtrace support" "")
 
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin OR CMAKE_SYSTEM_NAME STREQUAL FreeBSD)
+if(APPLE OR BSD)
   set(ENABLE_INTERNAL_PTHREAD_WORKQUEUES_DEFAULT OFF)
 else()
   set(ENABLE_INTERNAL_PTHREAD_WORKQUEUES_DEFAULT ON)
@@ -189,7 +174,7 @@ if(__BUILTIN_TRAP)
   set(HAVE_NORETURN_BUILTIN_TRAP 1)
 endif()
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL Android)
+if(NOT ANDROID)
   find_package(LibRT)
 endif()
 
@@ -244,12 +229,12 @@ if(HAVE_MACH)
 else()
   set(USE_MACH_SEM 0)
 endif()
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-  add_compile_definitions($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:USE_WIN32_SEM>)
+if(WIN32)
+  add_compile_definitions($<$<COMPILE_LANGUAGE:C,CXX>:USE_WIN32_SEM>)
 endif()
 check_library_exists(pthread sem_init "" USE_POSIX_SEM)
 # NOTE: android has not always provided a libpthread, but uses the pthreads API
-if(CMAKE_SYSTEM_NAME STREQUAL Android)
+if(ANDROID)
   set(USE_POSIX_SEM 1)
 endif()
 
@@ -275,16 +260,16 @@ check_symbol_exists(VQ_FREE_SPACE_CHANGE "sys/mount.h" HAVE_DECL_VQ_FREE_SPACE_C
 check_symbol_exists(strlcpy "string.h" HAVE_STRLCPY)
 check_symbol_exists(program_invocation_name "errno.h" HAVE_DECL_PROGRAM_INVOCATION_SHORT_NAME)
 if (HAVE_DECL_PROGRAM_INVOCATION_SHORT_NAME)
-  add_compile_definitions($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:_GNU_SOURCE=1>)
+  add_compile_definitions($<$<COMPILE_LANGUAGE:C,CXX>:_GNU_SOURCE=1>)
 endif()
 check_symbol_exists(__printflike "bsd/sys/cdefs.h" HAVE_PRINTFLIKE)
 
-if(CMAKE_SYSTEM_NAME STREQUAL Android)
+if(ANDROID)
   set(ENABLE_DTRACE_DEFAULT OFF)
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL FreeBSD)
-  add_compile_definitions($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:_WITH_DPRINTF>)
+if(BSD)
+  add_compile_definitions($<$<COMPILE_LANGUAGE:C,CXX>:_WITH_DPRINTF>)
 endif()
 
 if(ENABLE_DTRACE)
@@ -295,9 +280,9 @@ if(ENABLE_DTRACE)
 endif()
 
 if(dtrace_EXECUTABLE)
-  add_compile_definitions($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:DISPATCH_USE_DTRACE=1>)
+  add_compile_definitions($<$<COMPILE_LANGUAGE:C,CXX>:DISPATCH_USE_DTRACE=1>)
 else()
-  add_compile_definitions($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:DISPATCH_USE_DTRACE=0>)
+  add_compile_definitions($<$<COMPILE_LANGUAGE:C,CXX>:DISPATCH_USE_DTRACE=0>)
 endif()
 
 find_program(leaks_EXECUTABLE leaks)
@@ -306,22 +291,22 @@ if(leaks_EXECUTABLE)
 endif()
 
 
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-  add_compile_options($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/dispatch/darwin/module.modulemap>
-                      $<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/private/darwin/module.modulemap>)
+if(APPLE)
+  add_compile_options($<:$<COMPILE_LANGUAGE:C,CXX>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/dispatch/darwin/module.modulemap>
+                      $<:$<COMPILE_LANGUAGE:C,CXX>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/private/darwin/module.modulemap>)
 else()
-  add_compile_options($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/dispatch/generic/module.modulemap>
-                      $<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/private/generic/module.modulemap>)
+  add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/dispatch/generic/module.modulemap>
+                      $<$<COMPILE_LANGUAGE:C,CXX>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/private/generic/module.modulemap>)
 endif()
 
 configure_file("${PROJECT_SOURCE_DIR}/cmake/config.h.in"
                "${PROJECT_BINARY_DIR}/config/config_ac.h")
-add_compile_definitions($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:HAVE_CONFIG_H>)
+add_compile_definitions($<$<COMPILE_LANGUAGE:C,CXX>:HAVE_CONFIG_H>)
 
 
 if(ENABLE_SWIFT)
   if(NOT SWIFT_SYSTEM_NAME)
-    if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+    if(APPLE)
       set(SWIFT_SYSTEM_NAME macosx)
     else()
       set(SWIFT_SYSTEM_NAME "$<LOWER_CASE:${CMAKE_SYSTEM_NAME}>")

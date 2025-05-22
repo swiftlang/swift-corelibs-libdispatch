@@ -17,7 +17,7 @@ import CDispatch
 /// dispatch_assert
 
 @available(macOS 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *)
-public enum DispatchPredicate {
+public enum DispatchPredicate : Sendable {
 	case onQueue(DispatchQueue)
 	case onQueueAsBarrier(DispatchQueue)
 	case notOnQueue(DispatchQueue)
@@ -46,7 +46,7 @@ public func dispatchPrecondition(condition: @autoclosure () -> DispatchPredicate
 
 /// qos_class_t
 
-public struct DispatchQoS : Equatable {
+public struct DispatchQoS : Equatable, Sendable {
 	public let qosClass: QoSClass
 	public let relativePriority: Int
 
@@ -67,7 +67,7 @@ public struct DispatchQoS : Equatable {
 
 	public static let unspecified = DispatchQoS(qosClass: .unspecified, relativePriority: 0)
 
-	public enum QoSClass {
+	public enum QoSClass : Sendable {
 		@available(macOS 10.10, iOS 8.0, *)
 		case background
 
@@ -125,7 +125,7 @@ public func ==(a: DispatchQoS, b: DispatchQoS) -> Bool {
 
 /// 
 
-public enum DispatchTimeoutResult {
+public enum DispatchTimeoutResult : Sendable {
     static let KERN_OPERATION_TIMED_OUT:Int = 49
 	case success
 	case timedOut
