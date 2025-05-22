@@ -191,9 +191,7 @@ void _dispatch_prohibit_transition_to_multithreaded(bool prohibit);
 typedef mach_port_t dispatch_runloop_handle_t;
 #elif defined(__linux__)
 typedef int dispatch_runloop_handle_t;
-#elif defined(__FreeBSD__)
-typedef uint64_t dispatch_runloop_handle_t;
-#elif defined(__unix__) && !defined(__linux__)
+#elif defined(__unix__)
 typedef uint64_t dispatch_runloop_handle_t;
 #elif defined(_WIN32)
 typedef void *dispatch_runloop_handle_t;

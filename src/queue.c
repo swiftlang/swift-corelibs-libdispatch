@@ -6490,8 +6490,6 @@ _dispatch_runloop_queue_get_handle(dispatch_lane_t dq)
 #elif defined(__linux__)
 	// decode: 0 is a valid fd, so offset by 1 to distinguish from NULL
 	return ((dispatch_runloop_handle_t)(uintptr_t)dq->do_ctxt) - 1;
-#elif defined(__FreeBSD__)
-	return ((dispatch_runloop_handle_t)(uintptr_t)dq->do_ctxt);
 #elif defined(__unix__)
 	return ((dispatch_runloop_handle_t)(uintptr_t)dq->do_ctxt);
 #elif defined(_WIN32)
@@ -6511,9 +6509,7 @@ _dispatch_runloop_queue_set_handle(dispatch_lane_t dq,
 #elif defined(__linux__)
 	// encode: 0 is a valid fd, so offset by 1 to distinguish from NULL
 	dq->do_ctxt = (void *)(uintptr_t)(handle + 1);
-#elif defined(__FreeBSD__)
-	dq->do_ctxt = (void *)(uintptr_t)handle;
-#elif defined(__unix__) && !defined(__linux__)
+#elif defined(__unix__)
 	dq->do_ctxt = (void *)(uintptr_t)handle;
 #elif defined(_WIN32)
 	dq->do_ctxt = (void *)(uintptr_t)handle;
