@@ -1049,7 +1049,11 @@ _dispatch_bug_kevent_vanished(dispatch_unote_t du)
 			"{ %p[%s], ident: %" PRIdPTR " / 0x%" PRIxPTR ", handler: %p }",
 			dux_type(du._du)->dst_kind, dou._dq,
 			dou._dq->dq_label ? dou._dq->dq_label : "<unknown>",
+#if defined(__FreeBSD__)
+			(intptr_t)du._du->du_ident, (intptr_t)du._du->du_ident, func);
+#else
 			(intptr_t)du._du->du_ident, (uintptr_t)du._du->du_ident, func);
+#endif
 }
 
 #endif // RDAR_49023449

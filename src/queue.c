@@ -6490,7 +6490,7 @@ _dispatch_runloop_queue_get_handle(dispatch_lane_t dq)
 #elif defined(__linux__)
 	// decode: 0 is a valid fd, so offset by 1 to distinguish from NULL
 	return ((dispatch_runloop_handle_t)(uintptr_t)dq->do_ctxt) - 1;
-#elif defined(__unix__) && !defined(__linux__)
+#elif defined(__unix__)
 	return ((dispatch_runloop_handle_t)(uintptr_t)dq->do_ctxt);
 #elif defined(_WIN32)
 	return ((dispatch_runloop_handle_t)(uintptr_t)dq->do_ctxt);
@@ -6509,7 +6509,7 @@ _dispatch_runloop_queue_set_handle(dispatch_lane_t dq,
 #elif defined(__linux__)
 	// encode: 0 is a valid fd, so offset by 1 to distinguish from NULL
 	dq->do_ctxt = (void *)(uintptr_t)(handle + 1);
-#elif defined(__unix__) && !defined(__linux__)
+#elif defined(__unix__)
 	dq->do_ctxt = (void *)(uintptr_t)handle;
 #elif defined(_WIN32)
 	dq->do_ctxt = (void *)(uintptr_t)handle;
@@ -6574,6 +6574,7 @@ _dispatch_runloop_queue_handle_init(void *ctxt)
 	}
 	handle = fd;
 #elif defined(__unix__) && !defined(__linux__)
+	// swift-corelib-foundation PR #3004 implemented a pipe based queue handle
 	int fds[2];
 	int r = pipe2(fds, O_CLOEXEC | O_NONBLOCK);
 	if (r == -1) {
