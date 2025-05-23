@@ -64,7 +64,7 @@ _dispatch_thread_switch(dispatch_lock value, dispatch_lock_options_t flags,
   (void)value;
   (void)flags;
   (void)timeout;
-	sched_yield();
+  sched_yield();
 }
 #endif // HAVE_UL_UNFAIR_LOCK
 #elif defined(__unix__)
@@ -551,8 +551,8 @@ _dispatch_wait_on_address(uint32_t volatile *_address, uint32_t value,
 	if (dwMilliseconds == 0) return ETIMEDOUT;
 	return WaitOnAddress(address, &value, sizeof(value), dwMilliseconds) == TRUE;
 #elif defined(__FreeBSD__)
-  (void)flags;
-  if (nsecs != DISPATCH_TIME_FOREVER) {
+	(void)flags;
+	if (nsecs != DISPATCH_TIME_FOREVER) {
 		struct timespec ts = {
 			.tv_sec = (__typeof__(ts.tv_sec))(nsecs / NSEC_PER_SEC),
 			.tv_nsec = (__typeof__(ts.tv_nsec))(nsecs % NSEC_PER_SEC),

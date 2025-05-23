@@ -313,7 +313,7 @@ _dispatch_workq_count_runnable_workers(dispatch_workq_monitor_t mon)
 	}
 
 	// only care about up to WORKQ_MAX_TRACKED_TIDS threads
-	size = size > sizeof(kp) ? sizeof(kp) : size;
+	size = MIN(sizeof(kp), size);
 
 	if (sysctl(mib, 4, kp, &size, NULL, 0) < 0) {
 		_dispatch_debug("workq: failed to get kinfo_proc[] from sysctl");
