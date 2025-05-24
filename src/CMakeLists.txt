@@ -1,9 +1,5 @@
 
-if(NOT APPLE)
-  add_subdirectory(BlocksRuntime)
-endif()
-
-add_library(dispatch
+add_library(dispatch SHARED
   allocator.c
   apply.c
   benchmark.c
