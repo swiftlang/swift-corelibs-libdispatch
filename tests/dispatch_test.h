@@ -27,6 +27,10 @@
 #include <generic_win_port.h>
 #endif
 
+#if defined(__FreeBSD__)
+#include <sys/sysctl.h>
+#endif
+
 #define test_group_wait(g) do { \
 	if (dispatch_group_wait(g, dispatch_time(DISPATCH_TIME_NOW, \
 			25ull * NSEC_PER_SEC))) { \
