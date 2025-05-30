@@ -1,6 +1,11 @@
 #include <bsdtests.h>
 #include "dispatch_test.h"
 
+#if defined(__linux__)
+// For pthread_getaffinity_np()
+#include <pthread.h>
+#endif
+
 struct test_context {
 	uint32_t ncpu;
 	int flag;
@@ -35,6 +40,15 @@ activecpu(void)
         uint32_t activecpu;
 #if defined(__linux__) || defined(__OpenBSD__)
         activecpu = (uint32_t)sysconf(_SC_NPROCESSORS_ONLN);
+
+#if defined(__linux__) && __USE_GNU
+        cpu_set_t cpuset;
+        if (pthread_getaffinity_np(pthread_self(),
+                                   sizeof(cpu_set_t),
+                                   &cpuset) == 0)
+          activecpu = (uint32_t)CPU_COUNT(&cpuset);
+#endif
+
 #elif defined(_WIN32)
         SYSTEM_INFO si;
         GetSystemInfo(&si);
