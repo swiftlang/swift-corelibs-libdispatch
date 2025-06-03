@@ -231,10 +231,10 @@ _dispatch_sema4_timedwait(_dispatch_sema4_t *sema, dispatch_time_t timeout)
 	struct timespec _timeout;
 	int ret;
 
+	uint64_t nsec = _dispatch_time_nanoseconds_since_epoch(timeout);
+	_timeout.tv_sec = (__typeof__(_timeout.tv_sec))(nsec / NSEC_PER_SEC);
+	_timeout.tv_nsec = (__typeof__(_timeout.tv_nsec))(nsec % NSEC_PER_SEC);
 	do {
-		uint64_t nsec = _dispatch_time_nanoseconds_since_epoch(timeout);
-		_timeout.tv_sec = (__typeof__(_timeout.tv_sec))(nsec / NSEC_PER_SEC);
-		_timeout.tv_nsec = (__typeof__(_timeout.tv_nsec))(nsec % NSEC_PER_SEC);
 		ret = sem_timedwait(sema, &_timeout);
 	} while (unlikely(ret == -1 && errno == EINTR));
 
