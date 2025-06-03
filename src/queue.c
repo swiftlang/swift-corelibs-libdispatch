@@ -6246,6 +6246,7 @@ _dispatch_worker_thread(void *context)
 	dispatch_priority_t pri = dq->dq_priority;
 	pthread_priority_t pp = _dispatch_get_priority();
 
+#if defined(__linux__)
 	// The Linux kernel does not have a direct analogue to the QoS-based
 	// thread policy engine found in XNU.
 	//
@@ -6259,7 +6260,6 @@ _dispatch_worker_thread(void *context)
 	// per‐thread attribute: different threads in the same process can have
 	// different nice values. We can thus setup the thread's initial priority
 	// by converting the QoS class and relative priority to a 'nice' value.
-#if defined(__linux__)
 	pp = _dispatch_priority_to_pp_strip_flags(pri);
 	int nice = _dispatch_pp_to_nice(pp);
 
