@@ -42,15 +42,11 @@ void _dispatch_win32_set_thread_description(HANDLE hThread, const char *descript
     }
 
     int result = MultiByteToWideChar(CP_UTF8, 0, description, -1, wcstr, wcsize);
-    if (result == 0) {
-        free(wcstr);
-        return;
+    if (result != 0) {
+        SetThreadDescription(hThread, wcstr);
     }
 
-    if (likely(wcstr != NULL)) {
-        SetThreadDescription(hThread, wcstr);
-        free(wcstr);
-    }
+    free(wcstr);
 }
 #endif
 
