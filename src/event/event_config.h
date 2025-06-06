@@ -118,7 +118,11 @@
 
 // FreeBSD's kevent does not support those
 #	ifndef NOTE_ABSOLUTE
-#	define NOTE_ABSOLUTE 0
+#		ifdef NOTE_ABSTIME
+#			define NOTE_ABSOLUTE NOTE_ABSTIME
+#		else
+#			define NOTE_ABSOLUTE 0
+#		endif
 #	endif
 #	ifndef NOTE_EXITSTATUS
 #	define NOTE_EXITSTATUS 0
