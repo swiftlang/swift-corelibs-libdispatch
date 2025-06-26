@@ -408,12 +408,7 @@ test_dispatch_write(int kind, int delay)
 	dispatch_group_t g = dispatch_group_create();
 	dispatch_group_enter(g);
 
-	// The libdispatch implementation writes at most bufsize-1 bytes
-	// before requiring a reader to start making progress. Because
-	// these tests operate serially, the reader will not make progress
-	// until the write finishes, and a write of >= bufsize will not
-	// finish until the reader starts draining the pipe.
-	const size_t bufsize = test_get_pipe_buffer_size(kind) - 1;
+	const size_t bufsize = test_get_pipe_buffer_size(kind);
 
 	char *buf = calloc(bufsize, 1);
 	assert(buf);
