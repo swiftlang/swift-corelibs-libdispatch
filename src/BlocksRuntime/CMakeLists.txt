@@ -9,6 +9,9 @@ if(WIN32)
   if(NOT BUILD_SHARED_LIBS)
     target_compile_definitions(BlocksRuntime PRIVATE
       BlocksRuntime_STATIC)
+    target_compile_options(BlocksRuntime PUBLIC
+      "$<$<COMPILE_LANGUAGE:C,CXX>:SHELL:$<$<BOOL:${MSVC}>:-Xclang >-static-libclosure>"
+      $<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xcc -static-libclosure>)
   endif()
 endif()
 
