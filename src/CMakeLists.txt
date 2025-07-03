@@ -92,6 +92,10 @@ target_include_directories(dispatch PUBLIC
 target_include_directories(dispatch PRIVATE
   ${PROJECT_SOURCE_DIR}/private)
 
+if(NOT BUILD_SHARED_LIBS)
+  target_compile_definitions(dispatch PUBLIC
+    dispatch_STATIC)
+endif()
 if(WIN32)
   target_compile_definitions(dispatch PRIVATE
     _CRT_NONSTDC_NO_WARNINGS

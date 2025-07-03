@@ -194,7 +194,7 @@
 # endif
 #else
 # if defined(_WIN32)
-#   if defined(dispatch_EXPORT) || defined(__DISPATCH_BUILDING_DISPATCH__)
+#   if defined(dispatch_EXPORTS)
 #     define DISPATCH_EXPORT DISPATCH_EXTERN __declspec(dllexport)
 #   else
 #     define DISPATCH_EXPORT DISPATCH_EXTERN __declspec(dllimport)
