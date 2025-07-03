@@ -1,8 +1,4 @@
 
-if(NOT APPLE)
-  add_subdirectory(BlocksRuntime)
-endif()
-
 add_library(dispatch
   allocator.c
   apply.c
