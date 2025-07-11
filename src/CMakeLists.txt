@@ -95,6 +95,8 @@ target_include_directories(dispatch PRIVATE
 if(NOT BUILD_SHARED_LIBS)
   target_compile_definitions(dispatch PUBLIC
     dispatch_STATIC)
+  target_compile_options(dispatch PUBLIC
+    "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xcc -Ddispatch_STATIC>")
 endif()
 if(WIN32)
   target_compile_definitions(dispatch PRIVATE
