@@ -1,5 +1,3 @@
-include(SwiftSupport)
-
 if(HAVE_OBJC)
   add_library(DispatchStubs STATIC
     DispatchStubs.m)

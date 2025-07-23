@@ -306,6 +306,8 @@ add_compile_definitions($<$<COMPILE_LANGUAGE:C,CXX>:HAVE_CONFIG_H>)
 
 
 if(ENABLE_SWIFT)
+  include(SwiftSupport)
+
   if(NOT SWIFT_SYSTEM_NAME)
     if(APPLE)
       set(SWIFT_SYSTEM_NAME macosx)
@@ -313,8 +315,9 @@ if(ENABLE_SWIFT)
       set(SWIFT_SYSTEM_NAME "$<LOWER_CASE:${CMAKE_SYSTEM_NAME}>")
     endif()
   endif()
+  get_swift_host_arch(swift_arch)
 
-  set(INSTALL_TARGET_DIR "${CMAKE_INSTALL_LIBDIR}/swift$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:_static>/${SWIFT_SYSTEM_NAME}" CACHE PATH "Path where the libraries will be installed")
+  set(INSTALL_TARGET_DIR "${CMAKE_INSTALL_LIBDIR}/swift$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:_static>/${SWIFT_SYSTEM_NAME}/${swift_arch}" CACHE PATH "Path where the libraries will be installed")
   set(INSTALL_DISPATCH_HEADERS_DIR "${CMAKE_INSTALL_LIBDIR}/swift$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:_static>/dispatch" CACHE PATH "Path where the headers will be installed for libdispatch")
   set(INSTALL_BLOCK_HEADERS_DIR "${CMAKE_INSTALL_LIBDIR}/swift$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:_static>/Block" CACHE PATH "Path where the headers will be installed for the blocks runtime")
   set(INSTALL_OS_HEADERS_DIR "${CMAKE_INSTALL_LIBDIR}/swift$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:_static>/os" CACHE PATH "Path where the os/ headers will be installed")
