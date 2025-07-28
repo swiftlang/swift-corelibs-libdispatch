@@ -158,6 +158,7 @@ if(WIN32)
     ShLwApi
     WS2_32
     WinMM
+    mincore
     synchronization)
 endif()
 
