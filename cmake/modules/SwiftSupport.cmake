@@ -1,56 +1,5 @@
 include_guard()
 
-# Returns the architecture name in a variable
-#
-# Usage:
-#   get_swift_host_arch(result_var_name)
-#
-# Sets ${result_var_name} with the converted architecture name derived from
-# CMAKE_SYSTEM_PROCESSOR or CMAKE_HOST_SYSTEM_PROCESSOR.
-function(get_swift_host_arch result_var_name)
-  if(CMAKE_SYSTEM_PROCESSOR)
-    set(cmake_arch ${CMAKE_SYSTEM_PROCESSOR})
-  else()
-    set(cmake_arch ${CMAKE_HOST_SYSTEM_PROCESSOR})
-  endif()
-  if("${cmake_arch}" STREQUAL "x86_64")
-    set("${result_var_name}" "x86_64" PARENT_SCOPE)
-  elseif(cmake_arch MATCHES "aarch64|ARM64|arm64")
-    if(NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET OR
-        "${CMAKE_OSX_DEPLOYMENT_TARGET}" STREQUAL "")
-      set("${result_var_name}" "aarch64" PARENT_SCOPE)
-    else()
-      set("${result_var_name}" "arm64" PARENT_SCOPE)
-    endif()
-  elseif("${cmake_arch}" STREQUAL "ppc64")
-    set("${result_var_name}" "powerpc64" PARENT_SCOPE)
-  elseif("${cmake_arch}" STREQUAL "ppc64le")
-    set("${result_var_name}" "powerpc64le" PARENT_SCOPE)
-  elseif("${cmake_arch}" STREQUAL "s390x")
-    set("${result_var_name}" "s390x" PARENT_SCOPE)
-  elseif("${cmake_arch}" STREQUAL "armv6l")
-    set("${result_var_name}" "armv6" PARENT_SCOPE)
-  elseif("${cmake_arch}" STREQUAL "armv7-a")
-    set("${result_var_name}" "armv7" PARENT_SCOPE)
-  elseif("${cmake_arch}" STREQUAL "armv7l")
-    set("${result_var_name}" "armv7" PARENT_SCOPE)
-  elseif("${cmake_arch}" STREQUAL "amd64")
-    set("${result_var_name}" "amd64" PARENT_SCOPE)
-  elseif("${cmake_arch}" STREQUAL "AMD64")
-    set("${result_var_name}" "x86_64" PARENT_SCOPE)
-  elseif("${cmake_arch}" STREQUAL "IA64")
-    set("${result_var_name}" "itanium" PARENT_SCOPE)
-  elseif("${cmake_arch}" STREQUAL "x86")
-    set("${result_var_name}" "i686" PARENT_SCOPE)
-  elseif("${cmake_arch}" STREQUAL "i686")
-    set("${result_var_name}" "i686" PARENT_SCOPE)
-  elseif("${cmake_arch}" STREQUAL "riscv64")
-    set("${result_var_name}" "riscv64" PARENT_SCOPE)
-  else()
-    message(FATAL_ERROR "Unrecognized architecture: ${cmake_arch}")
-  endif()
-endfunction()
-
 if(NOT dispatch_MODULE_TRIPLE)
   set(module_triple_command "${CMAKE_Swift_COMPILER}" -print-target-info)
   if(CMAKE_Swift_COMPILER_TARGET)
@@ -63,6 +12,26 @@ if(NOT dispatch_MODULE_TRIPLE)
   mark_as_advanced(dispatch_MODULE_TRIPLE)
 
   message(CONFIGURE_LOG "Swift module triple: ${module_triple}")
+endif()
+
+if(NOT dispatch_Swift_ARCH)
+  if(CMAKE_Swift_COMPILER_VERSION VERSION_EQUAL 0.0.0 OR CMAKE_Swift_COMPILER_VERSION VERSION_GREATER_EQUAL 6.2)
+    # For newer compilers, we can use the -print-target-info command to get the architecture.
+    set(module_arch_command "${CMAKE_Swift_COMPILER}" -print-target-info)
+    if(CMAKE_Swift_COMPILER_TARGET)
+      list(APPEND module_arch_command -target ${CMAKE_Swift_COMPILER_TARGET})
+    endif()
+    execute_process(COMMAND ${module_arch_command} OUTPUT_VARIABLE target_info_json)
+    string(JSON module_arch GET "${target_info_json}" "target" "arch")
+  else()
+    # For older compilers, extract the value from `dispatch_MODULE_TRIPLE`.
+    string(REGEX MATCH "^[^-]+" module_arch "${dispatch_MODULE_TRIPLE}")
+  endif()
+
+  set(dispatch_Swift_ARCH "${module_arch}" CACHE STRING "Arch folder name used to install libraries")
+  mark_as_advanced(dispatch_Swift_ARCH)
+
+  message(CONFIGURE_LOG "Swift arch: ${dispatch_Swift_ARCH}")
 endif()
 
 function(install_swift_module target)
