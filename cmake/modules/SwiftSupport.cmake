@@ -1,6 +1,6 @@
 include_guard()
 
-if(NOT dispatch_Swift_MODULE_TRIPLE OR NOT dispatch_Swift_ARCH OR NOT dispatch_Swift_SYSTEM)
+if(NOT dispatch_Swift_MODULE_TRIPLE OR NOT dispatch_Swift_ARCH OR NOT dispatch_Swift_PLATFORM)
   # Get the target information from the Swift compiler.
   set(module_triple_command "${CMAKE_Swift_COMPILER}" -print-target-info)
   if(CMAKE_Swift_COMPILER_TARGET)
