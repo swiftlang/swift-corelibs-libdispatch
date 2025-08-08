@@ -277,9 +277,6 @@ _dispatch_pipe_monitor_thread(void *context)
 		char cBuffer[1];
 		DWORD dwNumberOfBytesTransferred;
 		OVERLAPPED ov = {0};
-		// Block on a 0-byte read; this will only resume when data is
-		// available in the pipe. The pipe must be PIPE_WAIT or this thread
-		// will spin.
 		BOOL bSuccess = ReadFile(hPipe, cBuffer, /* nNumberOfBytesToRead */ 0,
 				&dwNumberOfBytesTransferred, &ov);
 		DWORD dwBytesAvailable;
