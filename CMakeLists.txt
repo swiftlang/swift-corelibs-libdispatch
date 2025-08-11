@@ -267,6 +267,7 @@ check_symbol_exists(__printflike "bsd/sys/cdefs.h" HAVE_PRINTFLIKE)
 
 if(ANDROID)
   set(ENABLE_DTRACE_DEFAULT OFF)
+  add_link_options("LINKER:-z,max-page-size=16384")
 endif()
 
 if(BSD)
