@@ -116,7 +116,7 @@ extension DispatchSource {
 	}
 #endif
 
-#if !os(Linux) && !os(Android) && !os(Windows) && !os(OpenBSD)
+#if !os(Linux) && !os(Android) && !os(Windows)
 	public struct ProcessEvent : OptionSet, RawRepresentable {
 		public let rawValue: UInt
 		public init(rawValue: UInt) { self.rawValue = rawValue }
@@ -124,16 +124,19 @@ extension DispatchSource {
 		public static let exit = ProcessEvent(rawValue: 0x80000000)
 		public static let fork = ProcessEvent(rawValue: 0x40000000)
 		public static let exec = ProcessEvent(rawValue: 0x20000000)
-#if os(FreeBSD)
-		public static let track = ProcessEvent(rawValue: 0x00000001)
-#else
+
+#if canImport(Darwin)
 		public static let signal = ProcessEvent(rawValue: 0x08000000)
 #endif
+#if os(FreeBSD) || os(OpenBSD)
+		public static let track = ProcessEvent(rawValue: 0x00000001)
+#endif
 
-#if os(FreeBSD)
-		public static let all: ProcessEvent = [.exit, .fork, .exec, .track]
-#else
+#if canImport(Darwin)
 		public static let all: ProcessEvent = [.exit, .fork, .exec, .signal]
+#endif
+#if os(FreeBSD) || os(OpenBSD)
+		public static let all: ProcessEvent = [.exit, .fork, .exec, .track]
 #endif
 	}
 #endif
@@ -183,7 +186,7 @@ extension DispatchSource {
 	}
 #endif
 
-#if !os(Linux) && !os(Android) && !os(Windows) && !os(OpenBSD)
+#if !os(Linux) && !os(Android) && !os(Windows)
 	public class func makeProcessSource(identifier: pid_t, eventMask: ProcessEvent, queue: DispatchQueue? = nil) -> DispatchSourceProcess {
 		let source = dispatch_source_create(_swift_dispatch_source_type_PROC(), UInt(identifier), eventMask.rawValue, queue?.__wrapped)
 		return DispatchSource(source: source) as DispatchSourceProcess
@@ -299,7 +302,7 @@ extension DispatchSourceMemoryPressure {
 }
 #endif
 
-#if !os(Linux) && !os(Android) && !os(Windows) && !os(OpenBSD)
+#if !os(Linux) && !os(Android) && !os(Windows)
 extension DispatchSourceProcess {
 	public var handle: pid_t {
 		return pid_t(CDispatch.dispatch_source_get_handle((self as! DispatchSource).__wrapped))
