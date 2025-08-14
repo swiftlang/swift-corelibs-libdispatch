@@ -260,8 +260,16 @@ _dispatch_muxnote_retain(dispatch_muxnote_t dmn)
 static void
 _dispatch_muxnote_release(dispatch_muxnote_t dmn)
 {
-	uintptr_t refcount = os_atomic_dec(&dmn->dmn_refcount, relaxed);
+	// We perform a minor optimization here - perform the decrement with
+	// release semantics. In the case that we are going to dispose of the
+	// value, we perform the acquire fence. This reduces the cost on the
+	// normal path by avoiding the acquire fence. This should be more
+	// beneficial on ARM64, as X64 being TSO'ed doesn't gain much. However,
+	// `mfence` being isolated should hopefully be a bit more efficient than
+	// the repeated `lock` if there is contention.
+	uintptr_t refcount = os_atomic_dec(&dmn->dmn_refcount, release);
 	if (refcount == 0) {
+		os_atomic_thread_fence(acquire);
 		_dispatch_muxnote_dispose(dmn);
 	} else if (refcount == UINTPTR_MAX) {
 		DISPATCH_INTERNAL_CRASH(0, "muxnote refcount underflow");
