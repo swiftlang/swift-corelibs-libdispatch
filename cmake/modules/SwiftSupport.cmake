@@ -1,17 +1,51 @@
 include_guard()
 
-if(NOT dispatch_MODULE_TRIPLE)
+if(NOT dispatch_MODULE_TRIPLE OR NOT dispatch_ARCH OR NOT dispatch_PLATFORM)
+  # Get the target information from the Swift compiler.
   set(module_triple_command "${CMAKE_Swift_COMPILER}" -print-target-info)
   if(CMAKE_Swift_COMPILER_TARGET)
     list(APPEND module_triple_command -target ${CMAKE_Swift_COMPILER_TARGET})
   endif()
   execute_process(COMMAND ${module_triple_command} OUTPUT_VARIABLE target_info_json)
+endif()
 
+if(NOT dispatch_MODULE_TRIPLE)
   string(JSON module_triple GET "${target_info_json}" "target" "moduleTriple")
   set(dispatch_MODULE_TRIPLE "${module_triple}" CACHE STRING "Triple used to install swiftmodule files")
   mark_as_advanced(dispatch_MODULE_TRIPLE)
-
   message(CONFIGURE_LOG "Swift module triple: ${module_triple}")
+endif()
+
+if(NOT dispatch_ARCH)
+  if(CMAKE_Swift_COMPILER_VERSION VERSION_EQUAL 0.0.0 OR CMAKE_Swift_COMPILER_VERSION VERSION_GREATER_EQUAL 6.2)
+    # For newer compilers, we can use the -print-target-info command to get the architecture.
+    string(JSON module_arch GET "${target_info_json}" "target" "arch")
+  else()
+    # For older compilers, extract the value from `dispatch_MODULE_TRIPLE`.
+    string(REGEX MATCH "^[^-]+" module_arch "${dispatch_MODULE_TRIPLE}")
+  endif()
+
+  set(dispatch_ARCH "${module_arch}" CACHE STRING "Arch folder name used to install libraries")
+  mark_as_advanced(dispatch_ARCH)
+  message(CONFIGURE_LOG "Swift arch: ${dispatch_ARCH}")
+endif()
+
+if(NOT dispatch_PLATFORM)
+  if(CMAKE_Swift_COMPILER_VERSION VERSION_EQUAL 0.0.0 OR CMAKE_Swift_COMPILER_VERSION VERSION_GREATER_EQUAL 6.2)
+    # For newer compilers, we can use the -print-target-info command to get the platform.
+    string(JSON swift_platform GET "${target_info_json}" "target" "platform")
+  else()
+    # For older compilers, compile the value from `CMAKE_SYSTEM_NAME`.
+    if(APPLE)
+      set(swift_platform macosx)
+    else()
+      set(swift_platform "$<LOWER_CASE:${CMAKE_SYSTEM_NAME}>")
+    endif()
+  endif()
+
+  set(dispatch_PLATFORM "${swift_platform}" CACHE STRING "Platform folder name used to install libraries")
+  mark_as_advanced(dispatch_PLATFORM)
+  message(CONFIGURE_LOG "Swift platform: ${dispatch_PLATFORM}")
 endif()
 
 function(install_swift_module target)
@@ -19,12 +53,15 @@ function(install_swift_module target)
   if(NOT module)
     set(module ${target})
   endif()
+
+  set(INSTALL_SWIFT_MODULE_DIR "${CMAKE_INSTALL_LIBDIR}/swift$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:_static>/${dispatch_PLATFORM}" CACHE PATH "Path where the swift modules will be installed")
+
   install(
     FILES $<TARGET_PROPERTY:${target},Swift_MODULE_DIRECTORY>/${module}.swiftdoc
-    DESTINATION ${INSTALL_TARGET_DIR}/${module}.swiftmodule
+    DESTINATION ${INSTALL_SWIFT_MODULE_DIR}/${module}.swiftmodule
     RENAME ${dispatch_MODULE_TRIPLE}.swiftdoc)
   install(
     FILES $<TARGET_PROPERTY:${target},Swift_MODULE_DIRECTORY>/${module}.swiftmodule
-    DESTINATION ${INSTALL_TARGET_DIR}/${module}.swiftmodule
+    DESTINATION ${INSTALL_SWIFT_MODULE_DIR}/${module}.swiftmodule
     RENAME ${dispatch_MODULE_TRIPLE}.swiftmodule)
 endfunction()
