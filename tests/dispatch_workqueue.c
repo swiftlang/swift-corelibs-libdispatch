@@ -4,6 +4,10 @@
 #if defined(__linux__)
 // For pthread_getaffinity_np()
 #include <pthread.h>
+#elif defined(__FreeBSD__)
+// for pthread_getaffinity_np / cpu_set_t
+#include <pthread.h>
+#include <pthread_np.h>
 #endif
 
 struct test_context {
@@ -37,11 +41,11 @@ spin(void *context)
 static uint32_t
 activecpu(void)
 {
-        uint32_t activecpu;
-#if defined(__linux__) || defined(__OpenBSD__)
+        uint32_t activecpu = 0xa1a1a1;
+#if defined(__linux__) || defined(__OpenBSD__) || defined(__FreeBSD__)
         activecpu = (uint32_t)sysconf(_SC_NPROCESSORS_ONLN);
 
-#if defined(__linux__) && __USE_GNU
+#if defined(__FreeBSD__) || (defined(__linux__) && __USE_GNU)
         cpu_set_t cpuset;
         if (pthread_getaffinity_np(pthread_self(),
                                    sizeof(cpu_set_t),

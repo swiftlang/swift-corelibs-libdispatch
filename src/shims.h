@@ -58,9 +58,6 @@
 #define DISPATCH_WORKQ_MAX_PTHREAD_COUNT 255
 #endif
 
-#include "shims/hw_config.h"
-#include "shims/priority.h"
-
 #if HAVE_PTHREAD_NP_H
 #include <pthread_np.h>
 #endif
@@ -68,6 +65,9 @@
 #if __has_include(<pthread/private.h>)
 #include <pthread/private.h>
 #endif
+
+#include "shims/hw_config.h"
+#include "shims/priority.h"
 
 #if !HAVE_DECL_FD_COPY
 #define FD_COPY(f, t) (void)(*(t) = *(f))
