@@ -6,6 +6,10 @@ if(POLICY CMP0157 AND CMAKE_Swift_COMPILER_USE_OLD_DRIVER)
   cmake_policy(SET CMP0157 OLD)
 endif()
 
+if(POLICY CMP0181)
+  cmake_policy(SET CMP0181 NEW)
+endif()
+
 project(dispatch
   VERSION 1.3
   LANGUAGES C CXX)
