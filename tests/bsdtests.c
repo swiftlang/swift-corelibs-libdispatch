@@ -165,6 +165,20 @@ test_uint32_format(uint32_t actual, uint32_t expected, const char *format, ...)
 }
 
 void
+_test_uint32_not(const char* file, long line, const char* desc, uint32_t actual, uint32_t unexpected)
+{
+  _test_print(file, line, desc,
+      (actual != unexpected), "%u", actual, "!%u", unexpected);
+}
+
+void
+test_uint32_not_format(uint32_t actual, uint32_t unexpected, const char *format, ...)
+{
+	GENERATE_DESC
+	_test_uint32_not(NULL, 0, desc, actual, unexpected);
+}
+
+void
 _test_int32(const char* file, long line, const char* desc, int32_t actual, int32_t expected)
 {
 	_test_print(file, line, desc,
