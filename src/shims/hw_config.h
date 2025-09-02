@@ -102,14 +102,14 @@ static inline uint32_t
 _dispatch_hw_get_config(_dispatch_hw_config_t c)
 {
 	uint32_t val = 1;
-#if defined(__linux__) && HAVE_SYSCONF
+#if defined(__FreeBSD__) || (defined(__linux__) && HAVE_SYSCONF)
 	switch (c) {
 	case _dispatch_hw_config_logical_cpus:
 	case _dispatch_hw_config_physical_cpus:
 		return (uint32_t)sysconf(_SC_NPROCESSORS_CONF);
 	case _dispatch_hw_config_active_cpus:
 		{
-#ifdef __USE_GNU
+#if defined(__FreeBSD__) || __USE_GNU
 			// Prefer pthread_getaffinity_np because it considers
 			// scheduler cpu affinity.  This matters if the program
 			// is restricted to a subset of the online cpus (eg via numactl).
