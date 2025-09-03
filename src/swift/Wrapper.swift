@@ -182,7 +182,7 @@ extension DispatchSource : DispatchSourceMachSend,
 }
 #endif
 
-#if !os(Linux) && !os(Android) && !os(Windows) && !os(OpenBSD)
+#if !os(Linux) && !os(Android) && !os(Windows)
 extension DispatchSource : DispatchSourceProcess {
 }
 #endif
@@ -277,7 +277,7 @@ public protocol DispatchSourceMemoryPressure : DispatchSourceProtocol {
 }
 #endif
 
-#if !os(Linux) && !os(Android) && !os(Windows) && !os(OpenBSD)
+#if !os(Linux) && !os(Android) && !os(Windows)
 public protocol DispatchSourceProcess : DispatchSourceProtocol {
 	var handle: pid_t { get }
 
