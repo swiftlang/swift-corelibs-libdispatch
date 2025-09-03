@@ -59,7 +59,8 @@ activecpu(void)
         activecpu = si.dwNumberOfProcessors;
 #else
         size_t s = sizeof(activecpu);
-        sysctlbyname("hw.activecpu", &activecpu, &s, NULL, 0);
+        if (sysctlbyname("hw.activecpu", &activecpu, &s, NULL, 0) != 0)
+          return 0;
 #endif
 	return activecpu;
 }
@@ -70,6 +71,7 @@ int
 main(void)
 {
 	uint32_t ncpu = activecpu();
+	test_uint32_not("Failed to get CPU count", ncpu, 0);
 
 	dispatch_test_start("Dispatch workqueue");
 
