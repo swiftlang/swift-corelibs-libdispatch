@@ -112,7 +112,7 @@ void _test_uint32(const char* file, long line, const char* desc, uint32_t actual
 void test_uint32_format(uint32_t actual, uint32_t expected, const char *format, ...) __printflike(3,4);
 
 void _test_uint32_not(const char* file, long line, const char* desc, uint32_t actual, uint32_t unexpected);
-#define test_uint32_not(a,b,c) _test_uint32(__SOURCE_FILE__, __LINE__, a, b, c)
+#define test_uint32_not(a,b,c) _test_uint32_not(__SOURCE_FILE__, __LINE__, a, b, c)
 void test_uint32_not_format(uint32_t actual, uint32_t unexpected, const char *format, ...) __printflike(3,4);
 
 void _test_int32(const char* file, long line, const char* desc, int32_t actual, int32_t expected);
