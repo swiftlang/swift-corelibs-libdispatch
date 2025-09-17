@@ -6268,7 +6268,7 @@ _dispatch_worker_thread(void *context)
 	// including NUL. Truncate the label name from the beginning as it tends 
 	// to be more unique at the end.
 	size_t label_length = strlen(dq->dq_label); 
-	char * thread_name = dq->dq_label;
+	const char * thread_name = dq->dq_label;
 	if (label_length > 0) { 
 		const size_t max_thread_name_length = 16 - 1;  // minus the NUL byte; 
 		thread_name = thread_name + (label_length - max_thread_name_length); 
