@@ -6265,10 +6265,18 @@ _dispatch_worker_thread(void *context)
 
 	#if HAVE_PTHREAD_SETNAME_NP 
 	// pthread thread names are restricted to just 16 characters
-	// including NUL. It does not make sense to pass the queue's
-	// label as a name.
-	pthread_setname_np(pthread_self(), "DispatchWorker");
-	#endif
+	// including NUL. Truncate the label name from the beginning as it tends 
+	// to be more unique at the end.
+	size_t label_length = strlen(dq->dq_label); 
+	const char * thread_name = dq->dq_label;
+	if (label_length > 0) { 
+		const size_t max_thread_name_length = 16 - 1;  // minus the NUL byte; 
+		thread_name = thread_name + (label_length - max_thread_name_length); 
+	} else { 
+		thread_name = "DispatchWorker";
+	}
+	pthread_setname_np(pthread_self(), thread_name);
+	#endif // HAVE_PTHREAD_SETNAME_NP
 
 	errno = 0;
 	int rc = setpriority(PRIO_PROCESS, 0, nice);
