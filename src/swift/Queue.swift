@@ -28,7 +28,7 @@ internal class _DispatchSpecificValue<T> {
 }
 
 extension DispatchQueue {
-	public struct Attributes : OptionSet {
+	public struct Attributes : OptionSet, Sendable {
 		public let rawValue: UInt64
 		public init(rawValue: UInt64) { self.rawValue = rawValue }
 
@@ -52,7 +52,7 @@ extension DispatchQueue {
 		}
 	}
 
-	public enum GlobalQueuePriority {
+	public enum GlobalQueuePriority : Sendable {
 		@available(macOS, deprecated: 10.10, message: "Use qos attributes instead")
 		@available(iOS, deprecated: 8.0, message: "Use qos attributes instead")
 		@available(tvOS, deprecated, message: "Use qos attributes instead")
@@ -87,7 +87,7 @@ extension DispatchQueue {
 		}
 	}
 
-	public enum AutoreleaseFrequency {
+	public enum AutoreleaseFrequency : Sendable {
 		case inherit
 
 		@available(macOS 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *)
