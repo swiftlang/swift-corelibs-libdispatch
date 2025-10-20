@@ -2,3 +2,7 @@ LIBRARY BlocksRuntime
 EXPORTS
   _NSConcreteGlobalBlock CONSTANT
   _NSConcreteStackBlock CONSTANT
+  _NSConcreteMallocBlock CONSTANT
+  _NSConcreteAutoBlock CONSTANT
+  _NSConcreteFinalizingBlock CONSTANT
+  _NSConcreteWeakBlockVariable CONSTANT

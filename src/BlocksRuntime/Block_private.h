@@ -197,9 +197,17 @@ BLOCK_EXPORT bool _Block_tryRetain(const void *aBlock);
 // Callable only from the ARR weak subsystem while in exclusion zone
 BLOCK_EXPORT bool _Block_isDeallocating(const void *aBlock);
 
-
 // the raw data space for runtime classes for blocks
 // class+meta used for stack, malloc, and collectable based blocks
+#if defined(_WIN32)
+extern void * _NSConcreteMallocBlock[32];
+extern void * _NSConcreteAutoBlock[32];
+extern void * _NSConcreteFinalizingBlock[32];
+extern void * _NSConcreteWeakBlockVariable[32];
+// declared in Block.h
+// extern void * _NSConcreteGlobalBlock[32];
+// extern void * _NSConcreteStackBlock[32];
+#else
 BLOCK_EXPORT void * _NSConcreteMallocBlock[32];
 BLOCK_EXPORT void * _NSConcreteAutoBlock[32];
 BLOCK_EXPORT void * _NSConcreteFinalizingBlock[32];
@@ -207,6 +215,7 @@ BLOCK_EXPORT void * _NSConcreteWeakBlockVariable[32];
 // declared in Block.h
 // BLOCK_EXPORT void * _NSConcreteGlobalBlock[32];
 // BLOCK_EXPORT void * _NSConcreteStackBlock[32];
+#endif
 
 
 // the intercept routines that must be used under GC
