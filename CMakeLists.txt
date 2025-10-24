@@ -126,6 +126,8 @@ include(DispatchCompilerWarnings)
 include(DTrace)
 include(SwiftSupport)
 
+include(EnableFramePointers)
+
 # NOTE(abdulras) this is the CMake supported way to control whether we generate
 # shared or static libraries.  This impacts the behaviour of `add_library` in
 # what type of library it generates.
