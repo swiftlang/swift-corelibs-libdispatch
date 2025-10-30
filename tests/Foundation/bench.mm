@@ -148,7 +148,7 @@ print_result2(uint64_t s, const char *str)
 }
 #endif
 
-#if defined(__i386__) || defined(__x86_64__)
+#if (defined(__x86_64__) || defined(__i386__)) && !defined(__arm64ec__)
 static inline uint64_t
 rdtsc(void)
 {
@@ -229,7 +229,7 @@ main(void)
 
 	kr = mach_timebase_info(&tbi);
 	assert(kr == 0);
-#if defined(__i386__) || defined(__x86_64__)
+#if (defined(__x86_64__) || defined(__i386__)) && !defined(__arm64ec__)
 	assert(tbi.numer == tbi.denom); /* This will fail on PowerPC. */
 #endif
 
@@ -269,7 +269,7 @@ main(void)
 	print_result2(s, "mach_absolute_time():");
 #endif
 
-#if defined(__i386__) || defined(__x86_64__)
+#if (defined(__x86_64__) || defined(__i386__)) && !defined(__arm64ec__)
 	s = mach_absolute_time();
 	for (i = cnt; i; i--) {
 		rdtsc();
@@ -382,7 +382,7 @@ main(void)
 	}
 	print_result(s, "raw 'nop':");
 
-#if defined(__i386__) || defined(__x86_64__)
+#if (defined(__x86_64__) || defined(__i386__)) && !defined(__arm64ec__)
 	s = mach_absolute_time();
 	for (i = cnt; i; i--) {
 		__asm__ __volatile__ ("pause");
@@ -639,7 +639,7 @@ main(void)
 	for (i = cnt; i; i--) {
 		while (!__sync_bool_compare_and_swap(&global, 0, 1)) {
 			do {
-#if defined(__i386__) || defined(__x86_64__)
+#if (defined(__x86_64__) || defined(__i386__)) && !defined(__arm64ec__)
 				__asm__ __volatile__ ("pause");
 #elif defined(__arm__) && defined _ARM_ARCH_7
 				__asm__ __volatile__ ("yield");
