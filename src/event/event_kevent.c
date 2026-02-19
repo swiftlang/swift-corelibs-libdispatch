@@ -50,7 +50,7 @@ DISPATCH_STATIC_GLOBAL(struct dispatch_muxnote_bucket_s _dispatch_sources[DSL_HA
 #define DISPATCH_NOTE_CLOCK_WALL      NOTE_NSECONDS | NOTE_MACH_CONTINUOUS_TIME
 #define DISPATCH_NOTE_CLOCK_MONOTONIC NOTE_MACHTIME | NOTE_MACH_CONTINUOUS_TIME
 #define DISPATCH_NOTE_CLOCK_UPTIME    NOTE_MACHTIME
-#elif __FreeBSD__
+#elif defined(__FreeBSD__) || defined(__OpenBSD__)
 #define DISPATCH_NOTE_CLOCK_WALL      NOTE_NSECONDS
 #define DISPATCH_NOTE_CLOCK_MONOTONIC NOTE_NSECONDS
 #define DISPATCH_NOTE_CLOCK_UPTIME    NOTE_NSECONDS
@@ -2406,9 +2406,6 @@ _dispatch_event_loop_timer_arm(dispatch_timer_heap_t dth, uint32_t tidx,
 	}
 #if !NOTE_ABSOLUTE
 	target = range.delay;
-#if defined(__OpenBSD__)
-	target /= 1000000;
-#endif
 #endif
 
 	_dispatch_event_loop_timer_program(dth, tidx, target, range.leeway,
