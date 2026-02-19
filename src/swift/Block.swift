@@ -13,7 +13,7 @@
 import CDispatch
 @_implementationOnly import _DispatchOverlayShims
 
-public struct DispatchWorkItemFlags : OptionSet, RawRepresentable {
+public struct DispatchWorkItemFlags : OptionSet, RawRepresentable, Sendable {
 	public let rawValue: UInt
 	public init(rawValue: UInt) { self.rawValue = rawValue }
 
