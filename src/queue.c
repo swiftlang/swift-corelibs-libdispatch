@@ -6246,6 +6246,12 @@ _dispatch_worker_thread(void *context)
 	dispatch_priority_t pri = dq->dq_priority;
 	pthread_priority_t pp = _dispatch_get_priority();
 
+	#if HAVE_PTHREAD_SETNAME_NP
+	pthread_setname_np(pthread_self(), "DispatchWorker");
+	#elif HAVE_PTHREAD_SET_NAME_NP
+	pthread_set_name_np(pthread_self(), "DispatchWorker");
+	#endif // HAVE_PTHREAD_SETNAME_NP
+
 #if defined(__linux__)
 	// The Linux kernel does not have a direct analogue to the QoS-based
 	// thread policy engine found in XNU.
@@ -6262,10 +6268,6 @@ _dispatch_worker_thread(void *context)
 	// by converting the QoS class and relative priority to a 'nice' value.
 	pp = _dispatch_priority_to_pp_strip_flags(pri);
 	int nice = _dispatch_pp_to_nice(pp);
-
-	#if HAVE_PTHREAD_SETNAME_NP
-	pthread_setname_np(pthread_self(), "DispatchWorker");
-	#endif // HAVE_PTHREAD_SETNAME_NP
 
 	errno = 0;
 	int rc = setpriority(PRIO_PROCESS, 0, nice);

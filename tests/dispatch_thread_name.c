@@ -27,6 +27,18 @@
 #include <pthread.h>
 #include <unistd.h>
 #endif
+#if defined(__OpenBSD__) || defined(__FreeBSD__)
+#include <pthread_np.h>
+#endif
+
+#include <bsdtests.h>
+
+#if HAVE_PTHREAD_SET_NAME_NP && !HAVE_PTHREAD_SETNAME_NP
+#define pthread_setname_np pthread_set_name_np
+#endif
+#if HAVE_PTHREAD_GET_NAME_NP && !HAVE_PTHREAD_GETNAME_NP
+#define pthread_getname_np pthread_get_name_np
+#endif
 
 #include <bsdtests.h>
 #include "dispatch_test.h"
