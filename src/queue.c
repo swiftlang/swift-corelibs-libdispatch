@@ -6219,6 +6219,8 @@ _dispatch_worker_thread(void *context)
 
 #if HAVE_PTHREAD_SETNAME_NP
 	pthread_setname_np(pthread_self(), "DispatchWorker");
+#elif HAVE_PTHREAD_SET_NAME_NP
+	pthread_set_name_np(pthread_self(), "DispatchWorker");
 #endif // HAVE_PTHREAD_SETNAME_NP
 
 	const int64_t timeout = 5ull * NSEC_PER_SEC;

@@ -162,7 +162,7 @@ if(EXTENDED_TEST_SUITE)
 endif()
 
 # add C tests for platform-specific functionality when applicable
-if(UNIX AND HAVE_PTHREAD_SETNAME_NP)
+if(UNIX AND (HAVE_PTHREAD_SETNAME_NP OR HAVE_PTHREAD_SET_NAME_NP))
   list(APPEND DISPATCH_C_TESTS
        thread_name)
 endif()
