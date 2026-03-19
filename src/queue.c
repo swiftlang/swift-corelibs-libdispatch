@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2026 Apple Inc. All rights reserved.
  *
  * @APPLE_APACHE_LICENSE_HEADER_START@
  *
@@ -6263,19 +6263,8 @@ _dispatch_worker_thread(void *context)
 	pp = _dispatch_priority_to_pp_strip_flags(pri);
 	int nice = _dispatch_pp_to_nice(pp);
 
-	#if HAVE_PTHREAD_SETNAME_NP 
-	// pthread thread names are restricted to just 16 characters
-	// including NUL. Truncate the label name from the beginning as it tends 
-	// to be more unique at the end.
-	size_t label_length = strlen(dq->dq_label); 
-	const char * thread_name = dq->dq_label;
-	if (label_length > 0) { 
-		const size_t max_thread_name_length = 16 - 1;  // minus the NUL byte; 
-		thread_name = thread_name + (label_length - max_thread_name_length); 
-	} else { 
-		thread_name = "DispatchWorker";
-	}
-	pthread_setname_np(pthread_self(), thread_name);
+	#if HAVE_PTHREAD_SETNAME_NP
+	pthread_setname_np(pthread_self(), "DispatchWorker");
 	#endif // HAVE_PTHREAD_SETNAME_NP
 
 	errno = 0;
