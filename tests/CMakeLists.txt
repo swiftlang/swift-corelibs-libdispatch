@@ -162,6 +162,10 @@ if(EXTENDED_TEST_SUITE)
 endif()
 
 # add C tests for platform-specific functionality when applicable
+if(UNIX AND HAVE_PTHREAD_SETNAME_NP)
+  list(APPEND DISPATCH_C_TESTS
+       thread_name)
+endif()
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
   list(APPEND DISPATCH_C_TESTS
        deadname

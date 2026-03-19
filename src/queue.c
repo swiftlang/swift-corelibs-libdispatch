@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2026 Apple Inc. All rights reserved.
  *
  * @APPLE_APACHE_LICENSE_HEADER_START@
  *
@@ -6216,6 +6216,10 @@ _dispatch_worker_thread(void *context)
 	_dispatch_sigmask();
 #endif
 	_dispatch_introspection_thread_add();
+
+#if HAVE_PTHREAD_SETNAME_NP
+	pthread_setname_np(pthread_self(), "DispatchWorker");
+#endif // HAVE_PTHREAD_SETNAME_NP
 
 	const int64_t timeout = 5ull * NSEC_PER_SEC;
 	pthread_priority_t pp = _dispatch_get_priority();
