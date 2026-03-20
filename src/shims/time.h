@@ -49,7 +49,7 @@ typedef enum {
 
 void _dispatch_time_init(void);
 
-#if defined(__i386__) || defined(__x86_64__) || !HAVE_MACH_ABSOLUTE_TIME
+#if ((defined(__x86_64__) || defined(__i386__)) && !defined(__arm64ec__)) || !HAVE_MACH_ABSOLUTE_TIME
 #define DISPATCH_TIME_UNIT_USES_NANOSECONDS 1
 #else
 #define DISPATCH_TIME_UNIT_USES_NANOSECONDS 0
