@@ -83,12 +83,12 @@ struct dispatch_block_private_data_s {
 		_dispatch_block_private_data_debug("destroy%s, block: %p",
 				dbpd_magic ? "" : " (stack)", dbpd_block);
 
+		if (dbpd_magic != DISPATCH_BLOCK_PRIVATE_DATA_MAGIC) return;
 #if DISPATCH_INTROSPECTION
 		void *db = (char *) this - sizeof(struct Block_layout);
 		_dispatch_ktrace1(DISPATCH_QOS_TRACE_private_block_dispose, db);
 #endif /* DISPATCH_INTROSPECTION */
 
-		if (dbpd_magic != DISPATCH_BLOCK_PRIVATE_DATA_MAGIC) return;
 		if (dbpd_group) {
 			if (!dbpd_performed) dispatch_group_leave(dbpd_group);
 			_os_object_release(dbpd_group->_as_os_obj);
