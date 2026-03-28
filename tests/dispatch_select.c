@@ -133,7 +133,6 @@ stage2(void)
 		size_t buffer_size = 500*1024*sizeof(char);
 		char *buffer = malloc(buffer_size);
 		ssize_t sz = dispatch_test_fd_read(fd, buffer, buffer_size);
-		free(buffer);
 		actual += sz;
 		if (sz < (ssize_t)(buffer_size))
 		{
@@ -142,6 +141,7 @@ stage2(void)
 			test_long("EOF", sz, 0);
 			dispatch_source_cancel(source);
 		}
+		free(buffer);
 	});
 
 	dispatch_source_set_cancel_handler(source, ^{
