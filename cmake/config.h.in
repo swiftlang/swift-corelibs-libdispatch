@@ -208,6 +208,18 @@
 /* Define to 1 if you have the `_pthread_workqueue_init' function. */
 #cmakedefine HAVE__PTHREAD_WORKQUEUE_INIT
 
+/* Define to 1 if you have the `pthread_setname_np' function. */
+#cmakedefine01 HAVE_PTHREAD_SETNAME_NP
+
+/* Define to 1 if you have the `pthread_getname_np' function. */
+#cmakedefine01 HAVE_PTHREAD_GETNAME_NP
+
+/* Define to 1 if you have the `pthread_set_name_np' function. */
+#cmakedefine01 HAVE_PTHREAD_SET_NAME_NP
+
+/* Define to 1 if you have the `pthread_get_name_np' function. */
+#cmakedefine01 HAVE_PTHREAD_GET_NAME_NP
+
 /* Define to use non-portable pthread TSD optimizations for Mac OS X) */
 #cmakedefine USE_APPLE_TSD_OPTIMIZATIONS
 
