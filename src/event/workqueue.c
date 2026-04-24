@@ -362,7 +362,7 @@ _dispatch_workq_monitor_pools(void *context DISPATCH_UNUSED)
 		}
 
 		_dispatch_workq_count_runnable_workers(mon);
-		_dispatch_debug("workq: %s has %d runnable wokers (target is %d)",
+		_dispatch_debug("workq: %s has %d runnable workers (target is %d)",
 				dq->dq_label, mon->num_runnable, mon->target_runnable);
 
 		global_runnable += mon->num_runnable;
