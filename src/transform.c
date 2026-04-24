@@ -332,6 +332,8 @@ _dispatch_transform_to_utf16(dispatch_data_t data, int32_t byteOrder)
 			uint32_t wch = 0;
 			uint8_t byte_size = _dispatch_transform_utf8_length(*src);
 			size_t next;
+			// Capture the logical start position of this character before updating i
+			size_t char_start = offset + i;
 
 			if (byte_size == 0) {
 				return (bool)false;
@@ -359,7 +361,7 @@ _dispatch_transform_to_utf16(dispatch_data_t data, int32_t byteOrder)
 			if (os_mul_overflow(size - i, sizeof(uint16_t), &next)) {
 				return (bool)false;
 			}
-			if (wch == 0xfeff && offset + i == 3) {
+			if (wch == 0xfeff && char_start == 0) {
 				// skip the BOM if any, as we already inserted one ourselves
 			} else if (wch >= 0xd800 && wch < 0xdfff) {
 				// Illegal range (surrogate pair)
