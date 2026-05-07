@@ -13,14 +13,14 @@
 import CDispatch
 @_implementationOnly import _DispatchOverlayShims
 
-public struct DispatchData : RandomAccessCollection {
+public struct DispatchData : RandomAccessCollection, Sendable {
 	public typealias Iterator = DispatchDataIterator
 	public typealias Index = Int
 	public typealias Indices = DefaultIndices<DispatchData>
 
 	public static let empty: DispatchData = DispatchData(data: _swift_dispatch_data_empty())
 
-	public enum Deallocator {
+	public enum Deallocator : Sendable {
 		/// Use `free`
 		case free
 
@@ -34,7 +34,7 @@ public struct DispatchData : RandomAccessCollection {
 		//        However, adding the annotation here results in Data.o containing
 		//        a reference to _TMBO (opaque metadata for Builtin.UnknownObject)
 		//        which is only made available on platforms with Objective-C.
-		case custom(DispatchQueue?, () -> Void)
+		@preconcurrency case custom(DispatchQueue?, () -> Void)
 
 		fileprivate var _deallocator: (DispatchQueue?, @convention(block) () -> Void) {
 			switch self {
@@ -329,7 +329,7 @@ public struct DispatchData : RandomAccessCollection {
 	}
 }
 
-public struct DispatchDataIterator : IteratorProtocol, Sequence {
+public struct DispatchDataIterator : IteratorProtocol, Sequence, @unchecked Sendable {
         public typealias Element = UInt8
 
 	/// Create an iterator over the given DispatchData
