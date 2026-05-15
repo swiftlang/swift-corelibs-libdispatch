@@ -97,7 +97,7 @@ static const signed char base32hex_decode_table[] = {
 	30, 31
 };
 static const ssize_t base32hex_decode_table_size =
-		sizeof(base32hex_encode_table) / sizeof(*base32hex_encode_table);
+		sizeof(base32hex_decode_table) / sizeof(*base32hex_decode_table);
 
 static const unsigned char base64_encode_table[] =
 		"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
