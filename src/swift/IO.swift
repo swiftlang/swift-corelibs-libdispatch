@@ -17,19 +17,19 @@ import WinSDK
 
 extension DispatchIO {
 
-	public enum StreamType : UInt  {
+	public enum StreamType : UInt, Sendable  {
 		case stream = 0
 		case random = 1
 	}
 
-	public struct CloseFlags : OptionSet, RawRepresentable {
+	public struct CloseFlags : OptionSet, RawRepresentable, Sendable {
 		public let rawValue: UInt
 		public init(rawValue: UInt) { self.rawValue = rawValue }
 
 		public static let stop = CloseFlags(rawValue: 1)
 	}
 
-	public struct IntervalFlags : OptionSet, RawRepresentable {
+	public struct IntervalFlags : OptionSet, RawRepresentable, Sendable {
 		public let rawValue: UInt
 		public init(rawValue: UInt) { self.rawValue = rawValue }
 		public init(nilLiteral: ()) { self.rawValue = 0 }
