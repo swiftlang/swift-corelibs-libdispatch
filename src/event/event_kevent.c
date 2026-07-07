@@ -54,6 +54,14 @@ DISPATCH_STATIC_GLOBAL(struct dispatch_muxnote_bucket_s _dispatch_sources[DSL_HA
 #define DISPATCH_NOTE_CLOCK_WALL      NOTE_NSECONDS
 #define DISPATCH_NOTE_CLOCK_MONOTONIC NOTE_NSECONDS
 #define DISPATCH_NOTE_CLOCK_UPTIME    NOTE_NSECONDS
+#elif defined(__DragonFly__)
+#ifndef NOTE_NSECONDS
+#error "DragonFlyBSD EVFILT_TIMER defaults to milliseconds. Adjust timer values before enabling nanosecond timers."
+#else
+#define DISPATCH_NOTE_CLOCK_WALL      NOTE_NSECONDS
+#define DISPATCH_NOTE_CLOCK_MONOTONIC NOTE_NSECONDS
+#define DISPATCH_NOTE_CLOCK_UPTIME    NOTE_NSECONDS
+#endif
 #else
 #define DISPATCH_NOTE_CLOCK_WALL      0
 #define DISPATCH_NOTE_CLOCK_MONOTONIC 0
