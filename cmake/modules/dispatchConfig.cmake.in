@@ -1,7 +1,13 @@
+include(CMakeFindDependencyMacro)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+
+if(@LibRT_FOUND@)
+  find_dependency(LibRT)
+endif()
 
 set(DISPATCH_HAS_SWIFT_SDK_OVERLAY @ENABLE_SWIFT@)
 
 if(NOT TARGET dispatch)
-  include(@DISPATCH_EXPORTS_FILE@)
+  include("${CMAKE_CURRENT_LIST_DIR}/dispatchExports.cmake")
 endif()
 
