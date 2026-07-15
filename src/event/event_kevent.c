@@ -68,10 +68,22 @@ DISPATCH_STATIC_GLOBAL(struct dispatch_muxnote_bucket_s _dispatch_sources[DSL_HA
 #define DISPATCH_NOTE_CLOCK_UPTIME    0
 #endif
 
+#if defined(__FreeBSD__) || defined(__OpenBSD__)
+// BSD NOTE_ABSTIME deadlines use CLOCK_REALTIME.
+#define DISPATCH_NOTE_ABSOLUTE_WALL      NOTE_ABSOLUTE
+#define DISPATCH_NOTE_ABSOLUTE_MONOTONIC 0
+#define DISPATCH_NOTE_ABSOLUTE_UPTIME    0
+#else
+#define DISPATCH_NOTE_ABSOLUTE_WALL      NOTE_ABSOLUTE
+#define DISPATCH_NOTE_ABSOLUTE_MONOTONIC NOTE_ABSOLUTE
+#define DISPATCH_NOTE_ABSOLUTE_UPTIME    NOTE_ABSOLUTE
+#endif
+
 static const uint32_t _dispatch_timer_index_to_fflags[] = {
 #define DISPATCH_TIMER_FFLAGS_INIT(kind, qos, note) \
 	[DISPATCH_TIMER_INDEX(DISPATCH_CLOCK_##kind, DISPATCH_TIMER_QOS_##qos)] = \
-			DISPATCH_NOTE_CLOCK_##kind | NOTE_ABSOLUTE | NOTE_LEEWAY | (note)
+			DISPATCH_NOTE_CLOCK_##kind | DISPATCH_NOTE_ABSOLUTE_##kind | \
+			NOTE_LEEWAY | (note)
 	DISPATCH_TIMER_FFLAGS_INIT(WALL, NORMAL, 0),
 	DISPATCH_TIMER_FFLAGS_INIT(UPTIME, NORMAL, 0),
 	DISPATCH_TIMER_FFLAGS_INIT(MONOTONIC, NORMAL, 0),
@@ -2414,6 +2426,10 @@ _dispatch_event_loop_timer_arm(dispatch_timer_heap_t dth, uint32_t tidx,
 	}
 #if !NOTE_ABSOLUTE
 	target = range.delay;
+#elif defined(__FreeBSD__) || defined(__OpenBSD__)
+	if (clock != DISPATCH_CLOCK_WALL) {
+		target -= _dispatch_time_now_cached(clock, nows);
+	}
 #endif
 
 	_dispatch_event_loop_timer_program(dth, tidx, target, range.leeway,
