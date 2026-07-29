@@ -1,7 +1,27 @@
-
 set(DISPATCH_HAS_SWIFT_SDK_OVERLAY @ENABLE_SWIFT@)
+
+if(NOT @BUILD_SHARED_LIBS@)
+  if(NOT TARGET Threads::Threads)
+    add_library(Threads::Threads INTERFACE IMPORTED)
+    if("@THREADS_HAVE_PTHREAD_ARG@")
+      set_property(TARGET Threads::Threads PROPERTY INTERFACE_COMPILE_OPTIONS
+        "$<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:SHELL:-Xcompiler -pthread>"
+        "$<$<AND:$<NOT:$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>>,$<NOT:$<COMPILE_LANGUAGE:Swift>>>:-pthread>")
+    endif()
+    if(NOT "@CMAKE_THREAD_LIBS_INIT@" STREQUAL "")
+      set_property(TARGET Threads::Threads PROPERTY INTERFACE_LINK_LIBRARIES
+        "@CMAKE_THREAD_LIBS_INIT@")
+    endif()
+  endif()
+
+  if("@LibRT_FOUND@" AND NOT TARGET RT::rt)
+    add_library(RT::rt UNKNOWN IMPORTED)
+    set_target_properties(RT::rt PROPERTIES
+      IMPORTED_LOCATION "@LibRT_LIBRARIES@"
+      INTERFACE_INCLUDE_DIRECTORIES "@LibRT_INCLUDE_DIR@")
+  endif()
+endif()
 
 if(NOT TARGET dispatch)
   include(@DISPATCH_EXPORTS_FILE@)
 endif()
-
