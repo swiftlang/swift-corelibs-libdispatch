@@ -230,6 +230,8 @@ _dispatch_dispose(dispatch_object_t dou)
 		tq = _dispatch_get_root_queue(DISPATCH_QOS_DEFAULT, false)->_as_dq;
 	}
 
+	// defer pokes: dispose submits detached work during teardown
+	_dispatch_cooperative_pokes_defer();
 	dx_dispose(dou._do, &allow_free);
 
 	// Past this point, the only thing left of the object is its memory
@@ -237,6 +239,7 @@ _dispatch_dispose(dispatch_object_t dou)
 		_dispatch_object_finalize(dou);
 		_dispatch_object_dealloc(dou);
 	}
+	_dispatch_cooperative_pokes_undefer();
 	if (func && ctxt) {
 		dispatch_async_f(tq, ctxt, func);
 	}

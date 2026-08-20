@@ -43,8 +43,11 @@ static void
 _dispatch_once_callout(dispatch_once_gate_t l, void *ctxt,
 		dispatch_function_t func)
 {
+	// defer pokes: the initializer runs with the once gate held
+	_dispatch_cooperative_pokes_defer();
 	_dispatch_client_callout(ctxt, func);
 	_dispatch_once_gate_broadcast(l);
+	_dispatch_cooperative_pokes_undefer();
 }
 
 DISPATCH_NOINLINE

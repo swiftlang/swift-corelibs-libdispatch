@@ -699,6 +699,12 @@ void _dispatch_event_loop_timer_delete(dispatch_timer_heap_t dth, uint32_t tidx)
 
 void _dispatch_event_loop_drain_timers(dispatch_timer_heap_t dth, uint32_t count);
 
+// No-op on threaded platforms: pokes there wake other workers and never run
+// client code on the submitting stack, so critical sections need no bracket.
+// A cooperative single-threaded event backend defines the real versions.
+#define _dispatch_cooperative_pokes_defer()   ((void)0)
+#define _dispatch_cooperative_pokes_undefer() ((void)0)
+
 DISPATCH_ALWAYS_INLINE
 static inline void
 _dispatch_timers_heap_dirty(dispatch_timer_heap_t dth, uint32_t tidx)

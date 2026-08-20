@@ -1718,7 +1718,10 @@ _dispatch_barrier_trysync_or_async_f(dispatch_lane_t dq, void *ctxt,
 	if (flags & DISPATCH_BARRIER_TRYSYNC_SUSPEND) {
 		_dispatch_retain_2(dq); // see _dispatch_lane_suspend
 	}
+	// defer pokes: the invoke runs with the barrier lock held
+	_dispatch_cooperative_pokes_defer();
 	_dispatch_barrier_trysync_or_async_f_complete(dq, ctxt, func, flags);
+	_dispatch_cooperative_pokes_undefer();
 }
 
 #pragma mark -
@@ -1794,7 +1797,7 @@ _dispatch_sync_recurse(dispatch_lane_t dq, void *ctxt,
 
 DISPATCH_ALWAYS_INLINE
 static inline void
-_dispatch_barrier_sync_f_inline(dispatch_queue_t dq, void *ctxt,
+_dispatch_barrier_sync_f_inline_impl(dispatch_queue_t dq, void *ctxt,
 		dispatch_function_t func, uintptr_t dc_flags)
 {
 	dispatch_tid tid = _dispatch_tid_self();
@@ -1828,6 +1831,17 @@ _dispatch_barrier_sync_f_inline(dispatch_queue_t dq, void *ctxt,
 					dq, ctxt, func, dc_flags | DC_FLAG_BARRIER)));
 }
 
+DISPATCH_ALWAYS_INLINE
+static inline void
+_dispatch_barrier_sync_f_inline(dispatch_queue_t dq, void *ctxt,
+		dispatch_function_t func, uintptr_t dc_flags)
+{
+	// defer pokes: inline callouts run with the barrier lock held
+	_dispatch_cooperative_pokes_defer();
+	_dispatch_barrier_sync_f_inline_impl(dq, ctxt, func, dc_flags);
+	_dispatch_cooperative_pokes_undefer();
+}
+
 DISPATCH_NOINLINE
 static void
 _dispatch_barrier_sync_f(dispatch_queue_t dq, void *ctxt,
@@ -1846,7 +1860,7 @@ dispatch_barrier_sync_f(dispatch_queue_t dq, void *ctxt,
 
 DISPATCH_ALWAYS_INLINE
 static inline void
-_dispatch_sync_f_inline(dispatch_queue_t dq, void *ctxt,
+_dispatch_sync_f_inline_impl(dispatch_queue_t dq, void *ctxt,
 		dispatch_function_t func, uintptr_t dc_flags)
 {
 	if (likely(dq->dq_width == 1)) {
@@ -1870,6 +1884,17 @@ _dispatch_sync_f_inline(dispatch_queue_t dq, void *ctxt,
 	_dispatch_introspection_sync_begin(dl);
 	_dispatch_sync_invoke_and_complete(dl, ctxt, func DISPATCH_TRACE_ARG(
 			_dispatch_trace_item_sync_push_pop(dq, ctxt, func, dc_flags)));
+}
+
+DISPATCH_ALWAYS_INLINE
+static inline void
+_dispatch_sync_f_inline(dispatch_queue_t dq, void *ctxt,
+		dispatch_function_t func, uintptr_t dc_flags)
+{
+	// see _dispatch_barrier_sync_f_inline
+	_dispatch_cooperative_pokes_defer();
+	_dispatch_sync_f_inline_impl(dq, ctxt, func, dc_flags);
+	_dispatch_cooperative_pokes_undefer();
 }
 
 DISPATCH_NOINLINE
@@ -2099,7 +2124,10 @@ _dispatch_async_and_wait_f(dispatch_queue_t dq,
 		.dsc_waiter  = tid,
 	};
 
-	return _dispatch_async_and_wait_recurse(dq, &dsc, tid, dc_flags);
+	// defer pokes: the invoke can run inline with the acquired width held
+	_dispatch_cooperative_pokes_defer();
+	_dispatch_async_and_wait_recurse(dq, &dsc, tid, dc_flags);
+	_dispatch_cooperative_pokes_undefer();
 }
 
 DISPATCH_NOINLINE
@@ -2175,7 +2203,10 @@ _dispatch_async_and_wait_block_with_privdata(dispatch_queue_t dq,
 		.dsc_waiter  = tid,
 	};
 
-	return _dispatch_async_and_wait_recurse(dq, &dsc, tid, dc_flags);
+	// see _dispatch_async_and_wait_f
+	_dispatch_cooperative_pokes_defer();
+	_dispatch_async_and_wait_recurse(dq, &dsc, tid, dc_flags);
+	_dispatch_cooperative_pokes_undefer();
 }
 
 void
@@ -2318,6 +2349,8 @@ dispatch_queue_set_specific(dispatch_queue_t dq, const void *key,
 		return;
 	}
 
+	// defer pokes: the destructor push must not run under dqsh_lock
+	_dispatch_cooperative_pokes_defer();
 	_dispatch_unfair_lock_lock(&dqsh->dqsh_lock);
 	dqs = _dispatch_queue_specific_find(dqsh, key);
 	if (dqs) {
@@ -2341,6 +2374,7 @@ dispatch_queue_set_specific(dispatch_queue_t dq, const void *key,
 	}
 
 	_dispatch_unfair_lock_unlock(&dqsh->dqsh_lock);
+	_dispatch_cooperative_pokes_undefer();
 }
 
 DISPATCH_ALWAYS_INLINE
@@ -6877,6 +6911,13 @@ _dispatch_main_queue_update_priority_from_thread(void)
 	}
 }
 
+#endif // DISPATCH_COCOA_COMPAT
+#if DISPATCH_COCOA_COMPAT || defined(__wasi__)
+// Shared between the CFRunLoop callback path (DISPATCH_COCOA_COMPAT) and a
+// cooperative single-threaded drain, which owns the thread-bound main
+// queue's drain lock for the lifetime of the program. The runloop-handle
+// initialization and the thread-QoS override propagation are runloop/Darwin
+// machinery and compile only for COCOA_COMPAT.
 static void
 _dispatch_main_queue_drain(dispatch_queue_main_t dq)
 {
@@ -6898,8 +6939,10 @@ _dispatch_main_queue_drain(dispatch_queue_main_t dq)
 				" from the wrong thread");
 	}
 
+#if DISPATCH_COCOA_COMPAT
 	dispatch_once_f(&_dispatch_main_q_handle_pred, dq,
 			_dispatch_runloop_queue_handle_init);
+#endif
 
 	// <rdar://problem/23256682> hide the frame chaining when CFRunLoop
 	// drains the main runloop, as this should not be observable that way
@@ -6908,12 +6951,14 @@ _dispatch_main_queue_drain(dispatch_queue_main_t dq)
 
 	pthread_priority_t pp = _dispatch_get_priority();
 	dispatch_priority_t pri = _dispatch_priority_from_pp(pp);
-	dispatch_qos_t qos = _dispatch_priority_qos(pri);
 	voucher_t voucher = _voucher_copy();
 
+#if DISPATCH_COCOA_COMPAT
+	dispatch_qos_t qos = _dispatch_priority_qos(pri);
 	if (unlikely(qos != _dispatch_priority_qos(dq->dq_priority))) {
 		_dispatch_main_queue_update_priority_from_thread();
 	}
+#endif
 	dispatch_priority_t old_dbp = _dispatch_set_basepri(pri);
 	_dispatch_set_basepri_override_qos(DISPATCH_QOS_SATURATED);
 
@@ -6936,6 +6981,8 @@ _dispatch_main_queue_drain(dispatch_queue_main_t dq)
 	_dispatch_force_cache_cleanup();
 	_dispatch_perfmon_end_notrace();
 }
+#endif // DISPATCH_COCOA_COMPAT || defined(__wasi__)
+#if DISPATCH_COCOA_COMPAT
 
 static bool
 _dispatch_runloop_queue_drain_one(dispatch_lane_t dq)
