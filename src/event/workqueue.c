@@ -20,6 +20,11 @@
 
 #include "internal.h"
 
+// WORKAROUND swiftlang/swift#91648
+#if defined(_WIN32) && defined(dispatch_STATIC)
+#pragma comment(lib, "AdvAPI32.lib")
+#endif
+
 #if DISPATCH_USE_INTERNAL_WORKQUEUE
 
 #if defined(_WIN32)

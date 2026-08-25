@@ -19,6 +19,13 @@
  */
 
 #include "internal.h"
+
+// WORKAROUND swiftlang/swift#91648
+#if defined(_WIN32) && defined(dispatch_STATIC)
+#pragma comment(lib, "BlocksRuntime.lib")
+#pragma comment(lib, "ole32.lib")
+#endif
+
 #if HAVE_MACH
 #include "protocol.h" // _dispatch_send_wakeup_runloop_thread
 #endif

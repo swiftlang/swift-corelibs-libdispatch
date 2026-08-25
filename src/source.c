@@ -20,6 +20,11 @@
 
 #include "internal.h"
 
+// WORKAROUND swiftlang/swift#91648
+#if defined(_WIN32) && defined(dispatch_STATIC)
+#pragma comment(lib, "BlocksRuntime.lib")
+#endif
+
 static void _dispatch_source_handler_free(dispatch_source_refs_t ds, long kind);
 
 #pragma mark -

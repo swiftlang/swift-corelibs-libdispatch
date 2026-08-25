@@ -24,6 +24,12 @@
 // NOTE: this file must not contain any atomic operations
 
 #include "internal.h"
+
+// WORKAROUND swiftlang/swift#91648
+#if defined(_WIN32) && defined(dispatch_STATIC)
+#pragma comment(lib, "BlocksRuntime.lib")
+#endif
+
 #if __linux__
 #include <linux/limits.h> // for PATH_MAX
 #endif
