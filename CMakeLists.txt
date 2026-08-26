@@ -307,8 +307,8 @@ endif()
 
 
 if(APPLE)
-  add_compile_options($<:$<COMPILE_LANGUAGE:C,CXX>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/dispatch/darwin/module.modulemap>
-                      $<:$<COMPILE_LANGUAGE:C,CXX>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/private/darwin/module.modulemap>)
+  add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/dispatch/darwin/module.modulemap>
+                      $<$<COMPILE_LANGUAGE:C,CXX>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/private/darwin/module.modulemap>)
 else()
   add_compile_options($<$<COMPILE_LANGUAGE:C,CXX>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/dispatch/generic/module.modulemap>
                       $<$<COMPILE_LANGUAGE:C,CXX>:-fmodule-map-file=${PROJECT_SOURCE_DIR}/private/generic/module.modulemap>)
