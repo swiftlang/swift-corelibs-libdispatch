@@ -20,6 +20,11 @@
 
 #include "internal.h"
 
+// WORKAROUND swiftlang/swift#91648
+#if defined(_WIN32) && defined(dispatch_STATIC)
+#pragma comment(lib, "BlocksRuntime.lib")
+#endif
+
 /*
  * Dispatch data objects are dispatch objects with standard retain/release
  * memory management. A dispatch data object either points to a number of other

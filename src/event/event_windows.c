@@ -19,6 +19,12 @@
  */
 
 #include "internal.h"
+
+// WORKAROUND swiftlang/swift#91648
+#if defined(_WIN32) && defined(dispatch_STATIC)
+#pragma comment(lib, "WS2_32.lib")
+#endif
+
 #if DISPATCH_EVENT_BACKEND_WINDOWS
 
 static HANDLE hPort = NULL;

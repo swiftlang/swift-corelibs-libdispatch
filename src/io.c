@@ -20,6 +20,13 @@
 
 #include "internal.h"
 
+// WORKAROUND swiftlang/swift#91648
+#if defined(_WIN32) && defined(dispatch_STATIC)
+#pragma comment(lib, "BlocksRuntime.lib")
+#pragma comment(lib, "ShLwApi.lib")
+#pragma comment(lib, "WS2_32.lib")
+#endif
+
 #if defined(__FreeBSD__)
 #include <fcntl.h>
 #endif

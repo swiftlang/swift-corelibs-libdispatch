@@ -30,6 +30,11 @@
 
 #include "internal.h"
 
+// WORKAROUND swiftlang/swift#91648
+#if defined(_WIN32) && defined(dispatch_STATIC)
+#pragma comment(lib, "BlocksRuntime.lib")
+#endif
+
 // NOTE: this file must not contain any atomic operations
 
 #if DISPATCH_DEBUG && DISPATCH_BLOCK_PRIVATE_DATA_DEBUG

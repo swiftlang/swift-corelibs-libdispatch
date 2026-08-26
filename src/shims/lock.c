@@ -20,6 +20,13 @@
 
 #include "internal.h"
 
+// WORKAROUND swiftlang/swift#91648
+#if defined(_WIN32) && defined(dispatch_STATIC)
+#pragma comment(lib, "BlocksRuntime.lib")
+#pragma comment(lib, "WinMM.lib")
+#pragma comment(lib, "synchronization.lib")
+#endif
+
 #if TARGET_OS_MAC
 dispatch_static_assert(DLOCK_LOCK_DATA_CONTENTION ==
 		ULF_WAIT_WORKQ_DATA_CONTENTION);
