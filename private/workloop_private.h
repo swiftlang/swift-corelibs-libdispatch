@@ -391,7 +391,7 @@ dispatch_async_and_wait_f(dispatch_queue_t queue,
  * The target dispatch queue to which the block is submitted.
  * The result of passing NULL in this parameter is undefined.
  *
- * @param work
+ * @param block
  * The application-defined block to invoke on the target queue.
  * The result of passing NULL in this parameter is undefined.
  */
