@@ -355,7 +355,7 @@ _dispatch_cpu_number(void)
 {
 #if __has_include(<os/tsd.h>)
 	return _os_cpu_number();
-#elif defined(__x86_64__) || defined(__i386__)
+#elif (defined(__x86_64__) || defined(__i386__)) && !defined(__arm64ec__)
 	struct { uintptr_t p1, p2; } p;
 	__asm__("sidt %[p]" : [p] "=&m" (p));
 	return (unsigned int)(p.p1 & 0xfff);

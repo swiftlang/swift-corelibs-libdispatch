@@ -37,10 +37,10 @@
 
 #define DISPATCH_INTERNAL_CRASH(ac, msg) ({ panic(msg); __builtin_trap(); })
 
-#if defined(__x86_64__) || defined(__i386__)
+#if (defined(__x86_64__) || defined(__i386__)) && !defined(__arm64ec__)
 #define dispatch_hardware_pause() __asm__("pause")
 #elif (defined(__arm__) && defined(_ARM_ARCH_7) && defined(__thumb__)) || \
-		defined(__arm64__)
+		defined(__arm64__) || defined(__arm64ec__)
 #define dispatch_hardware_pause() __asm__("yield")
 #define dispatch_hardware_wfe()   __asm__("wfe")
 #else

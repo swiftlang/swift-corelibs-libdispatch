@@ -27,7 +27,7 @@
 #ifndef __DISPATCH_SHIMS_ATOMIC_SFB__
 #define __DISPATCH_SHIMS_ATOMIC_SFB__
 
-#if defined(__x86_64__) || defined(__i386__)
+#if (defined(__x86_64__) || defined(__i386__)) && !defined(__arm64ec__)
 
 // Returns UINT_MAX if all the bits in p were already set.
 DISPATCH_ALWAYS_INLINE
