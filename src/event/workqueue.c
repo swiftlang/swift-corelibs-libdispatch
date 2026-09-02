@@ -331,7 +331,7 @@ _dispatch_workq_count_runnable_workers(dispatch_workq_monitor_t mon)
 
 	for (int i = 0; i < mon->num_registered_tids; ++i) {
 		dispatch_tid tid = mon->registered_tids[i];
-		for (int j = 0; i < count; ++i) {
+		for (int j = 0; j < count; ++j) {
 			if ((dispatch_tid)kp[j].ki_tid != tid) { continue; }
 			if (kp[j].ki_stat == SRUN || kp[j].ki_stat == SIDL) {
 				++runners;
