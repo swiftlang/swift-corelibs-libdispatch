@@ -6581,7 +6581,7 @@ _dispatch_runloop_queue_get_handle(dispatch_lane_t dq)
 {
 #if TARGET_OS_MAC
 	return ((dispatch_runloop_handle_t)(uintptr_t)dq->do_ctxt);
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__FreeBSD__)
 	// decode: 0 is a valid fd, so offset by 1 to distinguish from NULL
 	return ((dispatch_runloop_handle_t)(uintptr_t)dq->do_ctxt) - 1;
 #elif defined(__unix__)
@@ -6600,7 +6600,7 @@ _dispatch_runloop_queue_set_handle(dispatch_lane_t dq,
 {
 #if TARGET_OS_MAC
 	dq->do_ctxt = (void *)(uintptr_t)handle;
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__FreeBSD__)
 	// encode: 0 is a valid fd, so offset by 1 to distinguish from NULL
 	dq->do_ctxt = (void *)(uintptr_t)(handle + 1);
 #elif defined(__unix__)
@@ -6644,7 +6644,7 @@ _dispatch_runloop_queue_handle_init(void *ctxt)
 	(void)dispatch_assume_zero(kr);
 
 	handle = mp;
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__FreeBSD__)
 	int fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
 	if (fd == -1) {
 		int err = errno;
@@ -6709,7 +6709,7 @@ _dispatch_runloop_queue_handle_dispose(dispatch_lane_t dq)
 	kr = mach_port_destruct(mach_task_self(), mp, -1, guard);
 	DISPATCH_VERIFY_MIG(kr);
 	(void)dispatch_assume_zero(kr);
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__FreeBSD__)
 	int rc = close(handle);
 	(void)dispatch_assume_zero(rc);
 #elif defined(__unix__) && !defined(__linux__)
@@ -6747,7 +6747,7 @@ _dispatch_runloop_queue_class_poke(dispatch_lane_t dq)
 		(void)dispatch_assume_zero(kr);
 		break;
 	}
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__FreeBSD__)
 	int result;
 	do {
 		result = eventfd_write(handle, 1);
@@ -7047,7 +7047,7 @@ _dispatch_runloop_root_queue_wakeup_4CF(dispatch_queue_t dq)
 	_dispatch_runloop_queue_wakeup(upcast(dq)._dl, 0, false);
 }
 
-#if TARGET_OS_MAC || defined(_WIN32) || defined(__OpenBSD__)
+#if TARGET_OS_MAC || defined(_WIN32) || defined(__OpenBSD__) || defined(__FreeBSD__)
 dispatch_runloop_handle_t
 _dispatch_runloop_root_queue_get_port_4CF(dispatch_queue_t dq)
 {
