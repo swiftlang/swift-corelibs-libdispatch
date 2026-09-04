@@ -189,7 +189,7 @@ void _dispatch_prohibit_transition_to_multithreaded(bool prohibit);
 
 #if TARGET_OS_MAC
 typedef mach_port_t dispatch_runloop_handle_t;
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__FreeBSD__)
 typedef int dispatch_runloop_handle_t;
 #elif defined(__unix__)
 typedef uint64_t dispatch_runloop_handle_t;
