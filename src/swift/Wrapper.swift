@@ -213,7 +213,7 @@ internal class __DispatchData : DispatchObject {
 
 public typealias DispatchSourceHandler = @convention(block) () -> Void
 
-public protocol DispatchSourceProtocol {
+public protocol DispatchSourceProtocol : AnyObject {
 	func setEventHandler(qos: DispatchQoS, flags: DispatchWorkItemFlags, handler: DispatchSourceHandler?)
 
 	func setEventHandler(handler: DispatchWorkItem)
@@ -241,20 +241,20 @@ public protocol DispatchSourceProtocol {
 	var isCancelled: Bool { get }
 }
 
-public protocol DispatchSourceUserDataAdd : DispatchSourceProtocol {
+public protocol DispatchSourceUserDataAdd : DispatchSourceProtocol, Sendable {
 	func add(data: UInt)
 }
 
-public protocol DispatchSourceUserDataOr : DispatchSourceProtocol {
+public protocol DispatchSourceUserDataOr : DispatchSourceProtocol, Sendable {
 	func or(data: UInt)
 }
 
-public protocol DispatchSourceUserDataReplace : DispatchSourceProtocol {
+public protocol DispatchSourceUserDataReplace : DispatchSourceProtocol, Sendable {
 	func replace(data: UInt)
 }
 
 #if HAVE_MACH
-public protocol DispatchSourceMachSend : DispatchSourceProtocol {
+public protocol DispatchSourceMachSend : DispatchSourceProtocol, Sendable {
 	public var handle: mach_port_t { get }
 
 	public var data: DispatchSource.MachSendEvent { get }
@@ -264,13 +264,13 @@ public protocol DispatchSourceMachSend : DispatchSourceProtocol {
 #endif
 
 #if HAVE_MACH
-public protocol DispatchSourceMachReceive : DispatchSourceProtocol {
+public protocol DispatchSourceMachReceive : DispatchSourceProtocol, Sendable {
 	var handle: mach_port_t { get }
 }
 #endif
 
 #if HAVE_MACH
-public protocol DispatchSourceMemoryPressure : DispatchSourceProtocol {
+public protocol DispatchSourceMemoryPressure : DispatchSourceProtocol, Sendable {
 	public var data: DispatchSource.MemoryPressureEvent { get }
 
 	public var mask: DispatchSource.MemoryPressureEvent { get }
@@ -278,7 +278,7 @@ public protocol DispatchSourceMemoryPressure : DispatchSourceProtocol {
 #endif
 
 #if !os(Linux) && !os(Android) && !os(Windows)
-public protocol DispatchSourceProcess : DispatchSourceProtocol {
+public protocol DispatchSourceProcess : DispatchSourceProtocol, Sendable {
 	var handle: pid_t { get }
 
 	var data: DispatchSource.ProcessEvent { get }
@@ -287,13 +287,13 @@ public protocol DispatchSourceProcess : DispatchSourceProtocol {
 }
 #endif
 
-public protocol DispatchSourceRead : DispatchSourceProtocol {
+public protocol DispatchSourceRead : DispatchSourceProtocol, Sendable {
 }
 
-public protocol DispatchSourceSignal : DispatchSourceProtocol {
+public protocol DispatchSourceSignal : DispatchSourceProtocol, Sendable {
 }
 
-public protocol DispatchSourceTimer : DispatchSourceProtocol {
+public protocol DispatchSourceTimer : DispatchSourceProtocol, Sendable {
 	func scheduleOneshot(deadline: DispatchTime, leeway: DispatchTimeInterval)
 
 	func scheduleOneshot(wallDeadline: DispatchWallTime, leeway: DispatchTimeInterval)
@@ -308,7 +308,7 @@ public protocol DispatchSourceTimer : DispatchSourceProtocol {
 }
 
 #if !os(Linux) && !os(Android) && !os(Windows) && !os(OpenBSD)
-public protocol DispatchSourceFileSystemObject : DispatchSourceProtocol {
+public protocol DispatchSourceFileSystemObject : DispatchSourceProtocol, Sendable {
 	var handle: Int32 { get }
 
 	var data: DispatchSource.FileSystemEvent { get }
@@ -317,7 +317,7 @@ public protocol DispatchSourceFileSystemObject : DispatchSourceProtocol {
 }
 #endif
 
-public protocol DispatchSourceWrite : DispatchSourceProtocol {
+public protocol DispatchSourceWrite : DispatchSourceProtocol, Sendable {
 }
 
 
