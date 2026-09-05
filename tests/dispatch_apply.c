@@ -33,15 +33,13 @@
 #endif
 #include <stdlib.h>
 #include <assert.h>
-#ifdef __APPLE__
-#include <libkern/OSAtomic.h>
-#endif
+#include <stdatomic.h>
 #include <sys/types.h>
 
 #include <bsdtests.h>
 #include "dispatch_test.h"
 
-static volatile int32_t busy_threads_started, busy_threads_finished;
+static atomic_int busy_threads_started, busy_threads_finished;
 
 /*
  * Keep a thread busy, spinning on the CPU.
@@ -58,7 +56,7 @@ static void busythread(void *ignored)
 	/* prevent i and j been optimized out */
 	volatile uint64_t i = 0, j = 0;
 
-	OSAtomicIncrement32(&busy_threads_started);
+	__c11_atomic_fetch_add(&busy_threads_started, 1, memory_order_relaxed);
 
 	while(!all_done)
 	{
@@ -68,7 +66,7 @@ static void busythread(void *ignored)
 	}
 	(void)j;
 
-	OSAtomicIncrement32(&busy_threads_finished);
+	__c11_atomic_fetch_add(&busy_threads_finished, 1, memory_order_relaxed);
 }
 
 /*
@@ -112,12 +110,13 @@ static void test_apply_contended(dispatch_queue_t dq)
 		usleep(1);
 	}
 
-	volatile __block int32_t count = 0;
+	
+	__block atomic_int count = ATOMIC_VAR_INIT(0);
 	const int32_t final = 32;
 
 	int32_t before = busy_threads_started;
 	dispatch_apply(final, dq, ^(size_t i __attribute__((unused))) {
-		OSAtomicIncrement32(&count);
+		__c11_atomic_fetch_add(&count, 1, memory_order_relaxed);
 	});
 	int32_t after = busy_threads_finished;
 
@@ -138,14 +137,14 @@ main(void)
 {
 	dispatch_test_start("Dispatch Apply");
 
-	volatile __block int32_t count = 0;
+	__block atomic_int count = ATOMIC_VAR_INIT(0);
 	const int32_t final = 32;
 
 	dispatch_queue_t queue = dispatch_get_global_queue(0, 0);
 	test_ptr_notnull("dispatch_get_global_queue", queue);
 
 	dispatch_apply(final, queue, ^(size_t i __attribute__((unused))) {
-		OSAtomicIncrement32(&count);
+		__c11_atomic_fetch_add(&count, 1, memory_order_relaxed);
 	});
 	test_long("count", count, final);
 
@@ -153,7 +152,7 @@ main(void)
 	dispatch_apply(final, queue, ^(size_t i __attribute__((unused))) {
 		dispatch_apply(final, queue, ^(size_t ii __attribute__((unused))) {
 			dispatch_apply(final, queue, ^(size_t iii __attribute__((unused))) {
-				OSAtomicIncrement32(&count);
+				__c11_atomic_fetch_add(&count, 1, memory_order_relaxed);
 			});
 		});
 	});
