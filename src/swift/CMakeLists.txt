@@ -17,11 +17,20 @@ add_library(swiftDispatch
   Wrapper.swift)
 target_compile_options(swiftDispatch PRIVATE
   "SHELL:-Xcc -fblocks"
-  "SHELL:-Xcc -fmodule-map-file=${PROJECT_SOURCE_DIR}/dispatch/module.modulemap"
   "SHELL:-Xcc -I${PROJECT_SOURCE_DIR}"
   "SHELL:-Xcc -I${PROJECT_SOURCE_DIR}/src/swift/shims")
-target_compile_options(swiftDispatch PUBLIC
-  "SHELL:-vfsoverlay ${CMAKE_BINARY_DIR}/dispatch-vfs-overlay.yaml")
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  if(NOT USE_PREBUILT_SDK)
+    target_compile_options(swiftDispatch PRIVATE
+      "SHELL:-Xcc -fmodule-map-file=${PROJECT_SOURCE_DIR}/dispatch/module.modulemap"
+      "SHELL:-vfsoverlay ${CMAKE_BINARY_DIR}/dispatch-vfs-overlay.yaml")
+  endif()
+else()
+  target_compile_options(swiftDispatch PRIVATE
+    "SHELL:-Xcc -fmodule-map-file=${PROJECT_SOURCE_DIR}/dispatch/module.modulemap")
+  target_compile_options(swiftDispatch PUBLIC
+    "SHELL:-vfsoverlay ${CMAKE_BINARY_DIR}/dispatch-vfs-overlay.yaml")
+endif()
 set_target_properties(swiftDispatch PROPERTIES
   Swift_MODULE_NAME Dispatch
   Swift_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/swift
