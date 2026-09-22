@@ -116,9 +116,10 @@
 #	define NOTE_FUNLOCK 0x00000100
 #	endif
 
-// FreeBSD's kevent does not support those
+// FreeBSD's and OpenBSD's kevent does not support those
+// OpenBSD's NOTE_ABSTIME uses CLOCK_REALTIME
 #	ifndef NOTE_ABSOLUTE
-#		ifdef NOTE_ABSTIME
+#		if defined(NOTE_ABSTIME) && !defined(__OpenBSD__)
 #			define NOTE_ABSOLUTE NOTE_ABSTIME
 #		else
 #			define NOTE_ABSOLUTE 0
