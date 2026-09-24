@@ -1,4 +1,4 @@
-# Grand Central Dispatch
+# Grand Central Dispatch 
 
 Grand Central Dispatch (GCD or libdispatch) provides comprehensive support for concurrent code execution on multicore hardware.
 
