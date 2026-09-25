@@ -1233,7 +1233,7 @@ _dispatch_queue_drain_try_lock(dispatch_queue_t dq,
 
 	dispatch_qos_t oq_floor = _dispatch_get_basepri_override_qos_floor();
 retry:
-	os_atomic_rmw_loop2o(dq, dq_state, old_state, new_state, acquire, {
+	os_atomic_rmw_loop2o(dq, dq_state, old_state, new_state, acq_rel, {
 		new_state = old_state;
 		if (likely(!(old_state & lock_fail_mask))) {
 			if (unlikely(_dq_state_needs_lock_override(old_state, oq_floor))) {
@@ -1257,6 +1257,10 @@ retry:
 		} else if (dequeue_mask) {
 			// dequeue_mask is in a register, xor yields better assembly
 			new_state ^= dequeue_mask;
+			// this case needs a release barrier, hence the acq_rel above:
+			// once ENQUEUED is cleared, dq can be enqueued again, and the
+			// do_next store in _dispatch_queue_class_invoke() must not be
+			// reordered after the enqueuer's
 		} else {
 			os_atomic_rmw_loop_give_up(break);
 		}
