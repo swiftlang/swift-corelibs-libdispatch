@@ -167,6 +167,11 @@ if(UNIX AND (HAVE_PTHREAD_SETNAME_NP OR HAVE_PTHREAD_SET_NAME_NP) AND (HAVE_PTHR
   list(APPEND DISPATCH_C_TESTS
        thread_name)
 endif()
+# EPOLLHUP handling (SR-9033); kevent platforms get this via EV_EOF
+if(LINUX)
+  list(APPEND DISPATCH_C_TESTS
+       read_hup)
+endif()
 if(APPLE)
   list(APPEND DISPATCH_C_TESTS
        deadname
@@ -183,6 +188,9 @@ endforeach()
 
 set_tests_properties(dispatch_io_pipe PROPERTIES TIMEOUT 15)
 set_tests_properties(dispatch_io_pipe_close PROPERTIES TIMEOUT 5)
+if(LINUX)
+  set_tests_properties(dispatch_read_hup PROPERTIES TIMEOUT 60)
+endif()
 
 # test dispatch API for various C/CXX language variants
 add_unit_test(dispatch_c99 SOURCES dispatch_c99.c)
