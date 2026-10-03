@@ -912,10 +912,16 @@ _dispatch_kq_deferred_find_slot(dispatch_deferred_items_t ddi,
 	int i;
 
 	for (i = 0; i < ddi->ddi_nevents; i++) {
+#if DISPATCH_HAVE_DIRECT_KNOTES
 		if (events[i].filter == filter && events[i].ident == ident &&
 				events[i].udata == udata) {
 			break;
 		}
+#else
+		if (events[i].filter == filter && events[i].ident == ident) {
+			break;
+		}
+#endif
 	}
 	return i;
 }
