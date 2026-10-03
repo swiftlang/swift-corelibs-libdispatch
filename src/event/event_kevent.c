@@ -918,6 +918,7 @@ _dispatch_kq_deferred_find_slot(dispatch_deferred_items_t ddi,
 			break;
 		}
 #else
+		(void)udata;
 		if (events[i].filter == filter && events[i].ident == ident) {
 			break;
 		}
