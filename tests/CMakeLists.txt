@@ -140,6 +140,10 @@ set(DISPATCH_C_TESTS
     io_pipe_close
     select)
 
+if(UNIX)
+  list(APPEND DISPATCH_C_TESTS timer_idle)
+endif()
+
 # Tests that usually pass, but occasionally fail.
 # Excluded by default for purposes of Swift CI
 if(EXTENDED_TEST_SUITE)
