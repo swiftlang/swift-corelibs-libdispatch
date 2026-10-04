@@ -27,6 +27,31 @@
 
 static void _dispatch_source_handler_free(dispatch_source_refs_t ds, long kind);
 
+#if DISPATCH_KAKEHASHI
+static dispatch_unote_t
+_dispatch_kakehashi_unsupported_source_create(
+		dispatch_source_type_t dst DISPATCH_UNUSED,
+		uintptr_t handle DISPATCH_UNUSED, uintptr_t mask DISPATCH_UNUSED)
+{
+	return DISPATCH_UNOTE_NULL;
+}
+
+const dispatch_source_type_s _dispatch_source_type_mach_recv = {
+	.dst_kind = "mach_recv (unsupported)",
+	.dst_create = _dispatch_kakehashi_unsupported_source_create,
+};
+
+const dispatch_source_type_s _dispatch_source_type_mach_send = {
+	.dst_kind = "mach_send (unsupported)",
+	.dst_create = _dispatch_kakehashi_unsupported_source_create,
+};
+
+const dispatch_source_type_s _dispatch_source_type_memorypressure = {
+	.dst_kind = "memorypressure (unsupported)",
+	.dst_create = _dispatch_kakehashi_unsupported_source_create,
+};
+#endif
+
 #pragma mark -
 #pragma mark dispatch_source_t
 
