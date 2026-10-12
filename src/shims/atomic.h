@@ -27,7 +27,16 @@
 #ifndef __DISPATCH_SHIMS_ATOMIC__
 #define __DISPATCH_SHIMS_ATOMIC__
 
-#if !__has_extension(c_atomic) || !__has_include(<stdatomic.h>)
+#ifndef __has_extension
+#define __has_extension(x) 0
+#endif
+#ifndef __has_include
+#define __has_include(x) 0
+#endif
+
+#if !(defined(__cplusplus) && __cplusplus >= 202302L && \
+		defined(__GNUC__) && !defined(__clang__)) && \
+		(!__has_extension(c_atomic) || !__has_include(<stdatomic.h>))
 #error libdispatch requires C11 with <stdatomic.h>
 #endif
 
@@ -37,48 +46,121 @@
 #endif
 #if defined(__ANDROID__) && __NDK_MAJOR__ >= 23
 #include <bits/stdatomic.h>
-#else
-#include <stdatomic.h>
-#endif
-
-#define memory_order_ordered    memory_order_seq_cst
-#define memory_order_dependency memory_order_acquire
-
+#elif defined(__cplusplus) && __cplusplus >= 202302L && defined(__clang__)
+/*
+ * C++23 makes libc++'s <stdatomic.h> expose std::atomic-based functions.
+ * These do not accept Clang's C _Atomic objects, which this shim uses.
+ */
+#define _dispatch_memory_order_relaxed __ATOMIC_RELAXED
+#define _dispatch_memory_order_consume __ATOMIC_CONSUME
+#define _dispatch_memory_order_acquire __ATOMIC_ACQUIRE
+#define _dispatch_memory_order_release __ATOMIC_RELEASE
+#define _dispatch_memory_order_acq_rel __ATOMIC_ACQ_REL
+#define _dispatch_memory_order_seq_cst __ATOMIC_SEQ_CST
+#define _dispatch_atomic_thread_fence __c11_atomic_thread_fence
+#define _dispatch_atomic_load_explicit __c11_atomic_load
+#define _dispatch_atomic_store_explicit __c11_atomic_store
+#define _dispatch_atomic_exchange_explicit __c11_atomic_exchange
+#define _dispatch_atomic_compare_exchange_strong_explicit \
+		__c11_atomic_compare_exchange_strong
+#define _dispatch_atomic_compare_exchange_weak_explicit \
+		__c11_atomic_compare_exchange_weak
+#define _dispatch_atomic_fetch_add_explicit __c11_atomic_fetch_add
+#define _dispatch_atomic_fetch_sub_explicit __c11_atomic_fetch_sub
+#define _dispatch_atomic_fetch_and_explicit __c11_atomic_fetch_and
+#define _dispatch_atomic_fetch_or_explicit __c11_atomic_fetch_or
+#define _dispatch_atomic_fetch_xor_explicit __c11_atomic_fetch_xor
 #define os_atomic(type) type _Atomic
-
 #define _os_atomic_c11_atomic(p) \
 		((__typeof__(*(p)) _Atomic *)(p))
+#elif defined(__cplusplus) && __cplusplus >= 202302L && defined(__GNUC__)
+#define _dispatch_memory_order_relaxed __ATOMIC_RELAXED
+#define _dispatch_memory_order_consume __ATOMIC_CONSUME
+#define _dispatch_memory_order_acquire __ATOMIC_ACQUIRE
+#define _dispatch_memory_order_release __ATOMIC_RELEASE
+#define _dispatch_memory_order_acq_rel __ATOMIC_ACQ_REL
+#define _dispatch_memory_order_seq_cst __ATOMIC_SEQ_CST
+#define _dispatch_atomic_thread_fence __atomic_thread_fence
+#define _dispatch_atomic_load_explicit __atomic_load_n
+#define _dispatch_atomic_store_explicit __atomic_store_n
+#define _dispatch_atomic_exchange_explicit __atomic_exchange_n
+#define _dispatch_atomic_compare_exchange_strong_explicit(p, e, v, s, f) \
+		__atomic_compare_exchange_n((p), (e), (v), false, (s), (f))
+#define _dispatch_atomic_compare_exchange_weak_explicit(p, e, v, s, f) \
+		__atomic_compare_exchange_n((p), (e), (v), true, (s), (f))
+#define _dispatch_atomic_fetch_add_explicit __atomic_fetch_add
+#define _dispatch_atomic_fetch_sub_explicit __atomic_fetch_sub
+#define _dispatch_atomic_fetch_and_explicit __atomic_fetch_and
+#define _dispatch_atomic_fetch_or_explicit __atomic_fetch_or
+#define _dispatch_atomic_fetch_xor_explicit __atomic_fetch_xor
+#define os_atomic(type) type
+#define _os_atomic_c11_atomic(p) (p)
+#else
+#include <stdatomic.h>
+#define _dispatch_memory_order_relaxed memory_order_relaxed
+#define _dispatch_memory_order_consume memory_order_consume
+#define _dispatch_memory_order_acquire memory_order_acquire
+#define _dispatch_memory_order_release memory_order_release
+#define _dispatch_memory_order_acq_rel memory_order_acq_rel
+#define _dispatch_memory_order_seq_cst memory_order_seq_cst
+#define _dispatch_atomic_thread_fence atomic_thread_fence
+#define _dispatch_atomic_load_explicit atomic_load_explicit
+#define _dispatch_atomic_store_explicit atomic_store_explicit
+#define _dispatch_atomic_exchange_explicit atomic_exchange_explicit
+#define _dispatch_atomic_compare_exchange_strong_explicit \
+		atomic_compare_exchange_strong_explicit
+#define _dispatch_atomic_compare_exchange_weak_explicit \
+		atomic_compare_exchange_weak_explicit
+#define _dispatch_atomic_fetch_add_explicit atomic_fetch_add_explicit
+#define _dispatch_atomic_fetch_sub_explicit atomic_fetch_sub_explicit
+#define _dispatch_atomic_fetch_and_explicit atomic_fetch_and_explicit
+#define _dispatch_atomic_fetch_or_explicit atomic_fetch_or_explicit
+#define _dispatch_atomic_fetch_xor_explicit atomic_fetch_xor_explicit
+#define os_atomic(type) type _Atomic
+#define _os_atomic_c11_atomic(p) \
+		((__typeof__(*(p)) _Atomic *)(p))
+#endif
+
+#define _dispatch_memory_order_ordered    _dispatch_memory_order_seq_cst
+#define _dispatch_memory_order_dependency _dispatch_memory_order_acquire
 
 // This removes the _Atomic and volatile qualifiers on the type of *p
 #define _os_atomic_basetypeof(p) \
-		__typeof__(atomic_load_explicit(_os_atomic_c11_atomic(p), memory_order_relaxed))
+		__typeof__(_dispatch_atomic_load_explicit(_os_atomic_c11_atomic(p), \
+		_dispatch_memory_order_relaxed))
 
 #define os_atomic_load(p, m) \
-		atomic_load_explicit(_os_atomic_c11_atomic(p), memory_order_##m)
+		_dispatch_atomic_load_explicit(_os_atomic_c11_atomic(p), \
+		_dispatch_memory_order_##m)
 #define os_atomic_store(p, v, m) \
-		atomic_store_explicit(_os_atomic_c11_atomic(p), v, memory_order_##m)
+		_dispatch_atomic_store_explicit(_os_atomic_c11_atomic(p), v, \
+		_dispatch_memory_order_##m)
 #define os_atomic_xchg(p, v, m) \
-		atomic_exchange_explicit(_os_atomic_c11_atomic(p), v, memory_order_##m)
+		_dispatch_atomic_exchange_explicit(_os_atomic_c11_atomic(p), v, \
+		_dispatch_memory_order_##m)
 #define os_atomic_cmpxchg(p, e, v, m) \
 		({ _os_atomic_basetypeof(p) _r = (e); \
-		atomic_compare_exchange_strong_explicit(_os_atomic_c11_atomic(p), \
-		&_r, v, memory_order_##m, memory_order_relaxed); })
+		_dispatch_atomic_compare_exchange_strong_explicit( \
+		_os_atomic_c11_atomic(p), &_r, v, _dispatch_memory_order_##m, \
+		_dispatch_memory_order_relaxed); })
 #define os_atomic_cmpxchgv(p, e, v, g, m) \
 		({ _os_atomic_basetypeof(p) _r = (e); _Bool _b = \
-		atomic_compare_exchange_strong_explicit(_os_atomic_c11_atomic(p), \
-		&_r, v, memory_order_##m, memory_order_relaxed); *(g) = _r; _b; })
+		_dispatch_atomic_compare_exchange_strong_explicit( \
+		_os_atomic_c11_atomic(p), &_r, v, _dispatch_memory_order_##m, \
+		_dispatch_memory_order_relaxed); *(g) = _r; _b; })
 #define os_atomic_cmpxchgvw(p, e, v, g, m) \
 		({ _os_atomic_basetypeof(p) _r = (e); _Bool _b = \
-		atomic_compare_exchange_weak_explicit(_os_atomic_c11_atomic(p), \
-		&_r, v, memory_order_##m, memory_order_relaxed); *(g) = _r;  _b; })
+		_dispatch_atomic_compare_exchange_weak_explicit( \
+		_os_atomic_c11_atomic(p), &_r, v, _dispatch_memory_order_##m, \
+		_dispatch_memory_order_relaxed); *(g) = _r;  _b; })
 
 #define _os_atomic_c11_op(p, v, m, o, op) \
 		({ _os_atomic_basetypeof(p) _v = (v), _r = \
-		atomic_fetch_##o##_explicit(_os_atomic_c11_atomic(p), _v, \
-		memory_order_##m); (__typeof__(_r))(_r op _v); })
+		_dispatch_atomic_fetch_##o##_explicit(_os_atomic_c11_atomic(p), _v, \
+		_dispatch_memory_order_##m); (__typeof__(_r))(_r op _v); })
 #define _os_atomic_c11_op_orig(p, v, m, o, op) \
-		atomic_fetch_##o##_explicit(_os_atomic_c11_atomic(p), v, \
-		memory_order_##m)
+		_dispatch_atomic_fetch_##o##_explicit(_os_atomic_c11_atomic(p), v, \
+		_dispatch_memory_order_##m)
 #define os_atomic_add(p, v, m) \
 		_os_atomic_c11_op((p), (v), m, add, +)
 #define os_atomic_add_orig(p, v, m) \
@@ -106,7 +188,8 @@
 #define os_atomic_load_with_dependency_on2o(p, f, e) \
 		os_atomic_load_with_dependency_on(&(p)->f, e)
 
-#define os_atomic_thread_fence(m)  atomic_thread_fence(memory_order_##m)
+#define os_atomic_thread_fence(m) \
+		_dispatch_atomic_thread_fence(_dispatch_memory_order_##m)
 
 #define os_atomic_load2o(p, f, m) \
 		os_atomic_load(&(p)->f, m)
