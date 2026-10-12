@@ -1,5 +1,5 @@
 
-add_library(BlocksRuntime
+add_library(BlocksRuntime SHARED
   data.c
   runtime.c)
 if(WIN32)
