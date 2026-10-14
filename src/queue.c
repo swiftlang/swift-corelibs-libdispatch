@@ -6205,14 +6205,24 @@ _dispatch_root_queue_init_pthread_pool(dispatch_queue_global_t dq,
 	dq->dgq_thread_pool_size = thread_pool_size;
 	qos_class_t cls = _dispatch_qos_to_qos_class(_dispatch_priority_qos(pri) ?:
 			_dispatch_priority_fallback_qos(pri));
-	if (cls) {
 #if !defined(_WIN32)
-		pthread_attr_t *attr = &pqc->dpq_thread_attr;
-		int r = pthread_attr_init(attr);
-		dispatch_assume_zero(r);
-		r = pthread_attr_setdetachstate(attr, PTHREAD_CREATE_DETACHED);
-		dispatch_assume_zero(r);
+	// Always initialize the worker thread attributes: platforms without QoS
+	// classes never enter the cls branch, but the attributes are passed to
+	// pthread_create() for every pool worker thread.
+	pthread_attr_t *attr = &pqc->dpq_thread_attr;
+	int r = pthread_attr_init(attr);
+	dispatch_assume_zero(r);
+	r = pthread_attr_setdetachstate(attr, PTHREAD_CREATE_DETACHED);
+	dispatch_assume_zero(r);
+#if defined(__powerpc64__)
+	// LLVM cannot emit the guaranteed tail calls (swifttailcc) that Swift
+	// concurrency relies on for async continuations on PowerPC, so
+	// continuation chains consume real stack frames on these worker threads.
+	r = pthread_attr_setstacksize(attr, 8 * 1024 * 1024);
+	dispatch_assume_zero(r);
+#endif // defined(__powerpc64__)
 #endif // !defined(_WIN32)
+	if (cls) {
 #if HAVE_PTHREAD_WORKQUEUE_QOS
 		r = pthread_attr_set_qos_class_np(attr, cls, 0);
 		dispatch_assume_zero(r);
