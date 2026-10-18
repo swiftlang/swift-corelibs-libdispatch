@@ -141,6 +141,31 @@ _dispatch_lock_owner(dispatch_lock lock_value)
   return lock_value & DLOCK_OWNER_MASK;
 }
 
+#elif defined(__wasi__)
+
+typedef uint32_t dispatch_tid;
+typedef uint32_t dispatch_lock;
+
+#define DLOCK_OWNER_NULL			((dispatch_tid)0)
+#define DLOCK_OWNER_MASK			((dispatch_lock)0xfffffffc)
+#define DLOCK_WAITERS_BIT			((dispatch_lock)0x00000001)
+#define DLOCK_FAILED_TRYLOCK_BIT		((dispatch_lock)0x00000002)
+
+// One thread, two lock owner ids: code outside a drain and main-queue drains
+// run as MAIN. A root-queue turn runs as WORKER, as a worker thread would.
+#define DISPATCH_WASI_MAIN_TID			((pid_t)1)
+#define DISPATCH_WASI_WORKER_TID		((pid_t)2)
+#define _dispatch_wasi_lock_owner(tid)		((dispatch_tid)((tid) << 2))
+#define _dispatch_tid_self() \
+		_dispatch_wasi_lock_owner(_dispatch_get_tsd_base()->tid)
+
+DISPATCH_ALWAYS_INLINE
+static inline dispatch_tid
+_dispatch_lock_owner(dispatch_lock lock_value)
+{
+	return lock_value & DLOCK_OWNER_MASK;
+}
+
 #else
 #  error define _dispatch_lock encoding scheme for your platform here
 #endif
@@ -263,8 +288,31 @@ void _dispatch_sema4_init(_dispatch_sema4_t *sema, int policy);
 #define _dispatch_sema4_is_created(sema)   ((void)sema, 1)
 #define _dispatch_sema4_create_slow(sema, policy) ((void)sema, (void)policy)
 
+#elif defined(__wasi__)
+
+// Single-threaded WASI uses a plain counter. A waiter does not block. It
+// drains pending dispatch work until a signal arrives.
+typedef uint32_t _dispatch_sema4_t;
+#define _DSEMA4_POLICY_FIFO 0
+#define _DSEMA4_POLICY_LIFO 0
+#define _DSEMA4_TIMEOUT() ((errno) = ETIMEDOUT, -1)
+
+#define _dispatch_sema4_init(sema, policy) (void)(*(sema) = 0)
+#define _dispatch_sema4_is_created(sema)   ((void)sema, 1)
+#define _dispatch_sema4_create_slow(sema, policy) ((void)sema, (void)policy)
+
 #else
 #error "port has to implement _dispatch_sema4_t"
+#endif
+
+#if defined(__wasi__)
+// The call that blocked, for the deadlock message of the WASI arm of
+// _dispatch_wait_on_address. dispatch_group_wait, dispatch_block_wait, and
+// dispatch_source_cancel_and_wait pass none.
+#define DLOCK_WASI_WAITER_MASK			((dispatch_lock_options_t)0x00300000)
+#define DLOCK_WASI_WAITER_SEMAPHORE		((dispatch_lock_options_t)0x00100000)
+#define DLOCK_WASI_WAITER_SEMAPHORE_TIMED	((dispatch_lock_options_t)0x00200000)
+#define DLOCK_WASI_WAITER_QUEUE			((dispatch_lock_options_t)0x00300000)
 #endif
 
 void _dispatch_sema4_dispose_slow(_dispatch_sema4_t *sema, int policy);

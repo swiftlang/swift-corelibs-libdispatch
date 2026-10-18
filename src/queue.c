@@ -7467,6 +7467,15 @@ _gettid(void)
 {
 	return GetCurrentThreadId();
 }
+#elif defined(__wasi__)
+DISPATCH_ALWAYS_INLINE
+static inline pid_t
+_gettid(void)
+{
+	// WASI has one thread. Seed tsd->tid with the main lock owner id. A
+	// root-queue drain turn switches to DISPATCH_WASI_WORKER_TID.
+	return DISPATCH_WASI_MAIN_TID;
+}
 #else
 #error "SYS_gettid unavailable on this system"
 #endif /* SYS_gettid */
