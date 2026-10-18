@@ -699,6 +699,20 @@ void _dispatch_event_loop_timer_delete(dispatch_timer_heap_t dth, uint32_t tidx)
 
 void _dispatch_event_loop_drain_timers(dispatch_timer_heap_t dth, uint32_t count);
 
+#if DISPATCH_EVENT_BACKEND_WASI
+void _dispatch_wasi_drain(void);
+bool _dispatch_wasi_drain_step(void);
+bool _dispatch_wasi_in_drain(void);
+uint64_t _dispatch_wasi_next_timer_ns(void);
+void _dispatch_wasi_sleep_until(uint64_t uptime_ns);
+void _dispatch_wasi_root_queue_poke(dispatch_queue_global_t dq);
+void _dispatch_wasi_main_queue_poke(void);
+// queue.c implements these because they need its static drain functions.
+void _dispatch_wasi_root_queue_drain(dispatch_queue_global_t dq);
+void _dispatch_wasi_mgr_queue_drain(void);
+void _dispatch_wasi_main_queue_drain(void);
+#endif // DISPATCH_EVENT_BACKEND_WASI
+
 DISPATCH_ALWAYS_INLINE
 static inline void
 _dispatch_timers_heap_dirty(dispatch_timer_heap_t dth, uint32_t tidx)
