@@ -25,7 +25,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+#if defined(__unix__) || defined(__wasi__) || (defined(__APPLE__) && defined(__MACH__))
 #include <unistd.h>
 #endif
 #include <errno.h>
@@ -540,7 +540,12 @@ test_stop_after_delay(void *delay)
 #endif
 
 	fflush(stdout);
+#if defined(__wasi__)
+	// WASI accepts exit statuses below 126 only. 0xff traps in proc_exit.
+	_exit(_test_exit_code ? EXIT_FAILURE : EXIT_SUCCESS);
+#else
 	_exit(_test_exit_code);
+#endif
 }
 
 void

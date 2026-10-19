@@ -19,7 +19,7 @@
  */
 
 #include <dispatch/dispatch.h>
-#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+#if defined(__unix__) || defined(__wasi__) || (defined(__APPLE__) && defined(__MACH__))
 #include <unistd.h>
 #endif
 #include <stdarg.h>

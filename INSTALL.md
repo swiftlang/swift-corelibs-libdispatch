@@ -168,3 +168,37 @@ to get the gold linker.
     ninja install
     ```
 
+
+### Building and testing for WASI
+
+The WASI port builds a static library for single-threaded
+`wasm32-unknown-wasip1`. It needs a Swift 6.3 or newer toolchain with the
+matching Swift SDK for WASI, CMake 3.26 or newer, and Ninja.
+
+1. Point the build at the toolchain and the SDK's target directory:
+
+    ```
+    export SWIFT_TOOLCHAIN="$HOME/Library/Developer/Toolchains/swift-6.3-RELEASE.xctoolchain"
+    export WASI_SDK="$HOME/Library/org.swift.swiftpm/swift-sdks/swift-6.3-RELEASE_wasm.artifactbundle/swift-6.3-RELEASE_wasm/wasm32-unknown-wasip1"
+    ```
+
+    `SWIFT_TOOLCHAIN` is the `.xctoolchain` root with `usr/bin/clang`.
+    `WASI_SDK` is the directory that holds `WASI.sdk` and
+    `swift.xctoolchain`.
+
+2. Configure, build and test. The compiler resource directory comes from
+   the SDK, so that clang finds the WASI compiler-rt builtins:
+
+    ```
+    cmake -G Ninja -DCMAKE_SYSTEM_NAME=WASI -DCMAKE_SYSTEM_PROCESSOR=wasm32 -DCMAKE_C_COMPILER="$SWIFT_TOOLCHAIN/usr/bin/clang" -DCMAKE_CXX_COMPILER="$SWIFT_TOOLCHAIN/usr/bin/clang++" -DCMAKE_C_COMPILER_TARGET=wasm32-unknown-wasip1 -DCMAKE_CXX_COMPILER_TARGET=wasm32-unknown-wasip1 -DCMAKE_SYSROOT="$WASI_SDK/WASI.sdk" -DCMAKE_C_FLAGS="-resource-dir $WASI_SDK/swift.xctoolchain/usr/lib/swift_static/clang" -DCMAKE_CXX_FLAGS="-resource-dir $WASI_SDK/swift.xctoolchain/usr/lib/swift_static/clang" -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY -DBUILD_TESTING=ON <path-to-source>
+    ninja
+    ctest
+    ```
+
+    The tests run under the WasmKit that ships with the toolchain. Set
+    `WASI_TEST_RUNNER` to use another WASI runtime, for example
+    `-DWASI_TEST_RUNNER=wasmtime`. When no runner is found, the tests
+    still build and are registered but disabled.
+
+    The Swift overlay does not support WASI; `ENABLE_SWIFT=YES` is
+    rejected.

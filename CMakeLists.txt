@@ -391,8 +391,7 @@ if(NOT APPLE)
   add_subdirectory(src/BlocksRuntime)
 endif()
 add_subdirectory(src)
-# The test suite does not build for WASI yet.
-if(BUILD_TESTING AND NOT WASI)
+if(BUILD_TESTING)
   add_subdirectory(tests)
 endif()
 
