@@ -142,6 +142,31 @@ _dispatch_workq_worker_unregister(dispatch_queue_global_t root_q)
 
 
 #if HAVE_DISPATCH_WORKQ_MONITORING
+/*
+ * Unconditional tracing of the pool monitor, independent of DISPATCH_DEBUG.
+ *
+ * The monitor runs at 1Hz and only reports on root queues that have work
+ * pending, so this stays quiet unless the pool is being adjusted. Output goes
+ * to stderr because that is what a parent process captures. The timestamp is
+ * monotonic since process start.
+ */
+static void
+_dispatch_workq_trace(const char *fmt, ...)
+{
+	uint64_t now = _dispatch_uptime();
+	char buf[256];
+	va_list ap;
+
+	va_start(ap, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+
+	fprintf(stderr, "[libdispatch workq +%llu.%03llus] %s\n",
+			(unsigned long long)(now / NSEC_PER_SEC),
+			(unsigned long long)((now / NSEC_PER_MSEC) % 1000), buf);
+	fflush(stderr);
+}
+
 #if defined(__linux__)
 /*
  * For each pid that is a registered worker, read /proc/[pid]/stat
@@ -212,6 +237,7 @@ _dispatch_workq_count_runnable_workers(dispatch_workq_monitor_t mon)
 	dispatch_once_f(&_wct_init_pred, &hWCTSession, &_dispatch_workq_init_wct);
 
 	int running_count = 0;
+	int waiting_count = 0, unopenable_count = 0, io_pending_count = 0;
 
 	_dispatch_unfair_lock_lock(&mon->registered_tid_lock);
 
@@ -226,6 +252,7 @@ _dispatch_workq_count_runnable_workers(dispatch_workq_monitor_t mon)
 			DWORD index = MIN(count, WCT_MAX_NODE_COUNT) - 1;
 			if (wait_chain[index].ObjectType == WctThreadType) {
 				if (wait_chain[index].ObjectStatus != WctStatusRunning) {
+					waiting_count++;
 					continue;
 				}
 			}
@@ -237,18 +264,30 @@ _dispatch_workq_count_runnable_workers(dispatch_workq_monitor_t mon)
 		HANDLE hThread = OpenThread(THREAD_QUERY_INFORMATION, FALSE, tid);
 		if (hThread == NULL) {
 			_dispatch_debug("workq: unable to open thread %lu: %lu", tid, GetLastError());
+			unopenable_count++;
 			continue;
 		}
 
 		BOOL IOPending = TRUE;
-		if (GetThreadIOPendingFlag(hThread, &IOPending))
-			if (!IOPending)
+		if (GetThreadIOPendingFlag(hThread, &IOPending)) {
+			if (!IOPending) {
 				++running_count;
+			} else {
+				io_pending_count++;
+			}
+		} else {
+			io_pending_count++;
+		}
 
 		CloseHandle(hThread);
 	}
 
 	mon->num_runnable = running_count;
+
+	_dispatch_workq_trace("%s probe: registered %d -> running %d "
+			"(wait_chain_blocked %d, openthread_failed %d, io_pending %d)",
+			mon->dq->dq_label, mon->num_registered_tids, running_count,
+			waiting_count, unopenable_count, io_pending_count);
 
 	_dispatch_unfair_lock_unlock(&mon->registered_tid_lock);
 }
@@ -371,6 +410,9 @@ _dispatch_workq_monitor_pools(void *context DISPATCH_UNUSED)
 		_dispatch_workq_count_runnable_workers(mon);
 		_dispatch_debug("workq: %s has %d runnable wokers (target is %d)",
 				dq->dq_label, mon->num_runnable, mon->target_runnable);
+		_dispatch_workq_trace("%s: runnable %d, target %d, global_runnable %d, "
+				"global_soft_max %d", dq->dq_label, mon->num_runnable,
+				mon->target_runnable, global_runnable, global_soft_max);
 
 		global_runnable += mon->num_runnable;
 
@@ -382,6 +424,8 @@ _dispatch_workq_monitor_pools(void *context DISPATCH_UNUSED)
 			int32_t floor = mon->target_runnable - WORKQ_MAX_TRACKED_TIDS;
 			_dispatch_debug("workq: %s has no runnable workers; poking with floor %d",
 					dq->dq_label, floor);
+			_dispatch_workq_trace("%s: STALLED, no runnable workers; poking "
+					"with floor %d", dq->dq_label, floor);
 			_dispatch_root_queue_poke(dq, 1, floor);
 			global_runnable += 1; // account for poke in global estimate
 		} else if (mon->num_runnable < mon->target_runnable &&
@@ -395,6 +439,8 @@ _dispatch_workq_monitor_pools(void *context DISPATCH_UNUSED)
 			floor = MAX(floor, floor2);
 			_dispatch_debug("workq: %s under utilization target; poking with floor %d",
 					dq->dq_label, floor);
+			_dispatch_workq_trace("%s: under utilization target; poking with "
+					"floor %d", dq->dq_label, floor);
 			_dispatch_root_queue_poke(dq, 1, floor);
 			global_runnable += 1; // account for poke in global estimate
 		}
