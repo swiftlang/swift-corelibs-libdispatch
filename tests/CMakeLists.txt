@@ -174,6 +174,9 @@ if(WASI)
   #       to fire on worker threads meanwhile
   #   io_muxed, io_net, io_pipe, io_pipe_close, select: single-threaded
   #       WASI does not support file-descriptor dispatch sources
+  # The wasi_* tests cover what single-threaded WASI adds: a wait that needs
+  # queued work crashes, dispatch_async never runs its block inline,
+  # dispatch_main() runs work and crashes when idle.
   set(DISPATCH_C_TESTS
       api
       debug
@@ -183,7 +186,16 @@ if(WASI)
       timer_bit31
       timer_bit63
       timer_set_time
-      data)
+      data
+      wasi_blocking_waits
+      wasi_nested_wait
+      wasi_timed_wait
+      wasi_dispatch_main_work
+      wasi_dispatch_main_idle
+      wasi_deferred_submission
+      wasi_wall_timer
+      wasi_serial_lane_fairness
+      wasi_wait_diagnostics)
 else()
 # Tests that reliably pass on all platforms
 set(DISPATCH_C_TESTS
@@ -259,6 +271,26 @@ foreach(test ${DISPATCH_C_TESTS})
                 SOURCES
                   dispatch_${test}.c)
 endforeach()
+
+if(WASI)
+  # These tests pass when the guest crashes with the expected diagnostic.
+  # The exit status is ignored and the output must contain the message.
+  set_tests_properties(dispatch_wasi_nested_wait PROPERTIES
+    PASS_REGULAR_EXPRESSION "Deadlock: semaphore wait on single-threaded WASI")
+  set_tests_properties(dispatch_wasi_dispatch_main_idle PROPERTIES
+    PASS_REGULAR_EXPRESSION "dispatch_main\\(\\) with no work or timer")
+  set_tests_properties(dispatch_wasi_wait_diagnostics PROPERTIES
+    PASS_REGULAR_EXPRESSION
+      "Deadlock: dispatch_sync or dispatch_async_and_wait on single-threaded WASI")
+  add_unit_test(dispatch_wasi_wait_diagnostics_top_level
+                SOURCES
+                  dispatch_wasi_wait_diagnostics.c)
+  target_compile_definitions(dispatch_wasi_wait_diagnostics_top_level PRIVATE
+    WAIT_DIAGNOSTICS_TOP_LEVEL=1)
+  set_tests_properties(dispatch_wasi_wait_diagnostics_top_level PROPERTIES
+    PASS_REGULAR_EXPRESSION
+      "Deadlock: semaphore wait on single-threaded WASI")
+endif()
 
 if(NOT WASI)
   set_tests_properties(dispatch_io_pipe PROPERTIES TIMEOUT 15)
