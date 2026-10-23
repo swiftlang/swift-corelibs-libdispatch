@@ -553,24 +553,17 @@ _dispatch_get_buffer_size(dispatch_muxnote_t dmn, bool writer)
 }
 
 static void
-_dispatch_event_merge_hangup(dispatch_unote_t du)
-{
-	// consumed by dux_merge_evt()
-	_dispatch_retain_unote_owner(du);
-	dispatch_unote_state_t du_state = _dispatch_unote_state(du);
-	du_state |= DU_STATE_NEEDS_DELETE;
-	du_state &= ~DU_STATE_ARMED;
-	_dispatch_unote_state_set(du, du_state);
-	uintptr_t data = 0;  // EOF
-	os_atomic_store2o(du._dr, ds_pending_data, ~data, relaxed);
-	dux_merge_evt(du._du, EV_DELETE|EV_DISPATCH, data, 0);
-}
-
-static void
 _dispatch_event_merge_fd(dispatch_muxnote_t dmn, uint32_t events)
 {
 	dispatch_unote_linkage_t dul, dul_next;
 	uintptr_t data;
+
+	// SR-9033: EPOLLHUP is unmaskable and level-triggered. Deliver it like
+	// EV_EOF on kevent: as a read/write event to whoever is armed, with the
+	// remaining byte count from SIOCINQ (0 once drained).
+	if (events & EPOLLHUP) {
+		events |= _dispatch_muxnote_armed_events(dmn) & (EPOLLIN | EPOLLOUT);
+	}
 
 	dmn->dmn_disarmed_events |= (events & (EPOLLIN | EPOLLOUT));
 
@@ -600,22 +593,12 @@ _dispatch_event_merge_fd(dispatch_muxnote_t dmn, uint32_t events)
 		}
 	}
 
-	// SR-9033: EPOLLHUP is an unmaskable event which we must respond to
-	if (events & EPOLLHUP) {
-		LIST_FOREACH_SAFE(dul, &dmn->dmn_readers_head, du_link, dul_next) {
-			dispatch_unote_t du = _dispatch_unote_linkage_get_unote(dul);
-			_dispatch_event_merge_hangup(du);
-		}
-		LIST_FOREACH_SAFE(dul, &dmn->dmn_writers_head, du_link, dul_next) {
-			dispatch_unote_t du = _dispatch_unote_linkage_get_unote(dul);
-			_dispatch_event_merge_hangup(du);
-		}
-		epoll_ctl(_dispatch_epfd, EPOLL_CTL_DEL, dmn->dmn_fd, NULL);
-		return;
-	}
-
+	// Only rearm if some unote still wants EPOLLIN or EPOLLOUT: rearming with
+	// just EPOLLFREE would immediately redeliver a pending EPOLLHUP and spin.
 	events = _dispatch_muxnote_armed_events(dmn);
-	if (events) _dispatch_epoll_update(dmn, events, EPOLL_CTL_MOD);
+	if (events & (EPOLLIN | EPOLLOUT)) {
+		_dispatch_epoll_update(dmn, events, EPOLL_CTL_MOD);
+	}
 }
 
 DISPATCH_NOINLINE
