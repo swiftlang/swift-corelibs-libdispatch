@@ -28,7 +28,7 @@
 #include <os/base.h>
 #elif defined(_WIN32)
 #include <os/generic_win_base.h>
-#elif defined(__unix__)
+#elif defined(__unix__) || defined(__wasi__)
 #include <os/generic_unix_base.h>
 #endif
 

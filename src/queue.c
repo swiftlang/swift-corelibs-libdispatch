@@ -284,12 +284,17 @@ _dispatch_cache_cleanup(void *value)
 static void
 _dispatch_force_cache_cleanup(void)
 {
+#if defined(__wasi__)
+	// The sole WASI thread is the worker for every root queue, so it keeps its
+	// continuation cache.
+#else
 	dispatch_continuation_t dc;
 	dc = _dispatch_thread_getspecific(dispatch_cache_key);
 	if (dc) {
 		_dispatch_thread_setspecific(dispatch_cache_key, NULL);
 		_dispatch_cache_cleanup(dc);
 	}
+#endif // defined(__wasi__)
 }
 
 #if DISPATCH_USE_MEMORYPRESSURE_SOURCE
@@ -3563,6 +3568,16 @@ _dispatch_queue_drain_should_narrow(dispatch_invoke_context_t dic)
 	}
 	return false;
 }
+#elif defined(__wasi__)
+// WASI has no workqueue to narrow, but the sole thread must not stay in one
+// lane drain, so a lane runs one item and then goes back on its target queue.
+// Root and main-queue steps start narrowed. Manager drains and
+// dispatch_with_disabled_narrowing() do not narrow.
+#define _dispatch_queue_drain_init_narrowing_check_deadline(dic, pri) \
+		((void)(pri), \
+		(dic)->dic_next_narrow_check = DISPATCH_THREAD_IS_NARROWING)
+#define _dispatch_queue_drain_should_narrow(dic) \
+		((dic)->dic_next_narrow_check != 0)
 #else
 #define _dispatch_queue_drain_init_narrowing_check_deadline(rq, dic) ((void)0)
 #define _dispatch_queue_drain_should_narrow(dic)  false
@@ -4286,6 +4301,13 @@ _dispatch_workloop_invoke2(dispatch_workloop_t dwl,
 
 			_dispatch_continuation_pop_inline(dc, dic, flags, dwl);
 			qos = dwl->dwl_drained_qos;
+#if defined(__wasi__)
+			// Like a lane drain, a workloop runs one item per turn, then
+			// goes back on its target queue.
+			if (unlikely(_dispatch_queue_drain_should_narrow(dic))) {
+				goto out_narrowed;
+			}
+#endif
 		} while ((dc = next_dc) && (_dispatch_queue_max_qos(dwl) <= qos));
 	}
 
@@ -4293,6 +4315,16 @@ _dispatch_workloop_invoke2(dispatch_workloop_t dwl,
 			DISPATCH_QUEUE_IN_BARRIER + DISPATCH_QUEUE_WIDTH_INTERVAL;
 	_dispatch_thread_frame_pop(&dtf);
 	return NULL;
+
+#if defined(__wasi__)
+out_narrowed:
+	// Unlock as the normal exit does. Returning the target queue makes
+	// _dispatch_queue_invoke_finish queue the workloop again.
+	*owned = (*owned & DISPATCH_QUEUE_ENQUEUED) +
+			DISPATCH_QUEUE_IN_BARRIER + DISPATCH_QUEUE_WIDTH_INTERVAL;
+	_dispatch_thread_frame_pop(&dtf);
+	return dwl->do_targetq;
+#endif
 
 out_with_barrier_waiter:
 	_dispatch_thread_frame_pop(&dtf);
@@ -5362,7 +5394,7 @@ _dispatch_queue_mgr_lock(struct dispatch_queue_static_s *dq)
 	});
 }
 
-#if DISPATCH_USE_KEVENT_WORKQUEUE
+#if DISPATCH_USE_KEVENT_WORKQUEUE || defined(__wasi__)
 DISPATCH_ALWAYS_INLINE
 static inline bool
 _dispatch_queue_mgr_unlock(struct dispatch_queue_static_s *dq)
@@ -5375,7 +5407,7 @@ _dispatch_queue_mgr_unlock(struct dispatch_queue_static_s *dq)
 	});
 	return _dq_state_is_dirty(old_state);
 }
-#endif // DISPATCH_USE_KEVENT_WORKQUEUE
+#endif // DISPATCH_USE_KEVENT_WORKQUEUE || defined(__wasi__)
 
 static void
 _dispatch_mgr_queue_drain(void)
@@ -5404,6 +5436,27 @@ _dispatch_mgr_queue_drain(void)
 		_dispatch_force_cache_cleanup();
 	}
 }
+
+#if defined(__wasi__)
+DISPATCH_NOINLINE
+void
+_dispatch_wasi_mgr_queue_drain(void)
+{
+	// No manager thread: drain the manager queue inline, as the kevent
+	// workqueue manager drain does. Restore the current queue, because the
+	// sole thread is not a pristine worker.
+	dispatch_queue_t old_dq = _dispatch_queue_get_current();
+	_dispatch_queue_set_current(&_dispatch_mgr_q);
+	_dispatch_queue_mgr_lock(&_dispatch_mgr_q);
+	_dispatch_mgr_queue_drain();
+	bool needs_poll = _dispatch_queue_mgr_unlock(&_dispatch_mgr_q);
+	_dispatch_queue_set_current(old_dq);
+	if (needs_poll) {
+		_dispatch_trace_runtime_event(worker_request, &_dispatch_mgr_q, 1);
+		_dispatch_event_loop_poke(DISPATCH_WLH_MANAGER, 0, 0);
+	}
+}
+#endif // defined(__wasi__)
 
 void
 _dispatch_mgr_queue_push(dispatch_lane_t dq, dispatch_object_t dou,
@@ -5687,12 +5740,12 @@ _dispatch_workloop_worker_thread(uint64_t *workloop_id,
 #pragma mark -
 #pragma mark dispatch_root_queue
 
-#if DISPATCH_USE_PTHREAD_POOL
+#if DISPATCH_USE_PTHREAD_POOL && !defined(__wasi__)
 static void *_dispatch_worker_thread(void *context);
 #if defined(_WIN32)
 static unsigned WINAPI _dispatch_worker_thread_thunk(LPVOID lpParameter);
 #endif
-#endif // DISPATCH_USE_PTHREAD_POOL
+#endif // DISPATCH_USE_PTHREAD_POOL && !defined(__wasi__)
 
 #if DISPATCH_DEBUG && DISPATCH_ROOT_QUEUE_DEBUG
 #define _dispatch_root_queue_debug(...) _dispatch_debug(__VA_ARGS__)
@@ -5714,6 +5767,25 @@ DISPATCH_NOINLINE
 static void
 _dispatch_root_queue_poke_slow(dispatch_queue_global_t dq, int n, int floor)
 {
+#if defined(__wasi__)
+	// No thread to create: count one pending worker and note the queue for
+	// the drain. _dispatch_wasi_root_queue_drain() undoes the count, as
+	// _dispatch_worker_thread2 does. This cmpxchg must be the only increment,
+	// so the fast path in _dispatch_root_queue_poke() must not compile in.
+#if !DISPATCH_USE_INTERNAL_WORKQUEUE
+#error the WASI cooperative drain requires DISPATCH_USE_INTERNAL_WORKQUEUE
+#endif
+	(void)floor;
+	_dispatch_root_queues_init();
+	_dispatch_debug_root_queue(dq, __func__);
+	_dispatch_trace_runtime_event(worker_request, dq, (uint64_t)n);
+	if (!os_atomic_cmpxchg2o(dq, dgq_pending, 0, 1, relaxed)) {
+		_dispatch_root_queue_debug("worker thread request still pending for "
+				"global queue: %p", dq);
+		return;
+	}
+	_dispatch_wasi_root_queue_poke(dq);
+#else // defined(__wasi__)
 	int remaining = n;
 #if !defined(_WIN32)
 	int r = ENOSYS;
@@ -5821,6 +5893,7 @@ _dispatch_root_queue_poke_slow(dispatch_queue_global_t dq, int n, int floor)
 #else
 	(void)floor;
 #endif // DISPATCH_USE_PTHREAD_POOL
+#endif // defined(__wasi__)
 }
 
 DISPATCH_NOINLINE
@@ -6167,6 +6240,31 @@ _dispatch_root_queue_drain(dispatch_queue_global_t dq,
 	_dispatch_queue_set_current(NULL);
 }
 
+#if defined(__wasi__)
+DISPATCH_NOINLINE
+void
+_dispatch_wasi_root_queue_drain(dispatch_queue_global_t dq)
+{
+	// One worker turn, as _dispatch_worker_thread2 runs it, with the worker
+	// lock owner id and an empty frame chain. The narrowing check limits the
+	// turn to one root item.
+	struct dispatch_tsd *tsd = _dispatch_get_tsd_base();
+	pid_t old_tid = tsd->tid;
+	dispatch_thread_frame_s dtf;
+	// Consume the worker request from _dispatch_root_queue_poke_slow.
+	int pending = os_atomic_dec2o(dq, dgq_pending, relaxed);
+	dispatch_assert(pending >= 0);
+	(void)pending;
+
+	tsd->tid = DISPATCH_WASI_WORKER_TID;
+	_dispatch_thread_frame_push_and_rebase(&dtf, (dispatch_queue_t)NULL, NULL);
+	_dispatch_root_queue_drain(dq, dq->dq_priority,
+			DISPATCH_INVOKE_WORKER_DRAIN | DISPATCH_INVOKE_REDIRECTING_DRAIN);
+	_dispatch_thread_frame_pop(&dtf);
+	tsd->tid = old_tid;
+}
+#endif // defined(__wasi__)
+
 #if !DISPATCH_USE_INTERNAL_WORKQUEUE
 static void
 _dispatch_worker_thread2(pthread_priority_t pp)
@@ -6224,6 +6322,7 @@ _dispatch_root_queue_init_pthread_pool(dispatch_queue_global_t dq,
 	_dispatch_sema4_create(sema, _DSEMA4_POLICY_LIFO);
 }
 
+#if !defined(__wasi__)
 // 6618342 Contact the team that owns the Instrument DTrace probe before
 //         renaming this symbol
 static void *
@@ -6365,6 +6464,7 @@ _dispatch_worker_thread_thunk(LPVOID lpParameter)
 	return 0;
 }
 #endif // defined(_WIN32)
+#endif // !defined(__wasi__)
 #endif // DISPATCH_USE_PTHREAD_POOL
 
 DISPATCH_NOINLINE
@@ -6553,7 +6653,7 @@ _dispatch_pthread_root_queue_dispose(dispatch_queue_global_t dq,
 #pragma mark -
 #pragma mark dispatch_runloop_queue
 
-#ifndef __linux__
+#if !defined(__linux__) && !defined(__wasi__)
 DISPATCH_STATIC_GLOBAL(bool _dispatch_program_is_probably_callback_driven);
 #endif
 
@@ -6936,6 +7036,9 @@ _dispatch_main_queue_drain(dispatch_queue_main_t dq)
 	_dispatch_set_basepri_override_qos(DISPATCH_QOS_SATURATED);
 
 	dispatch_invoke_context_s dic = { };
+#if defined(__wasi__)
+	dic.dic_next_narrow_check = DISPATCH_THREAD_IS_NARROWING;
+#endif
 	struct dispatch_object_s *dc, *next_dc, *tail;
 	dc = os_mpsc_capture_snapshot(os_mpsc(dq, dq_items), &tail);
 	do {
@@ -6955,6 +7058,13 @@ _dispatch_main_queue_drain(dispatch_queue_main_t dq)
 	_dispatch_perfmon_end_notrace();
 }
 #endif // DISPATCH_COCOA_COMPAT || defined(__wasi__)
+#if defined(__wasi__)
+void
+_dispatch_wasi_main_queue_drain(void)
+{
+	_dispatch_main_queue_drain(&_dispatch_main_q);
+}
+#endif // defined(__wasi__)
 #if DISPATCH_COCOA_COMPAT
 
 static bool
@@ -7133,11 +7243,22 @@ _dispatch_main_queue_wakeup(dispatch_queue_main_t dq, dispatch_qos_t qos,
 	if (_dispatch_queue_is_thread_bound(dq)) {
 		return _dispatch_runloop_queue_wakeup(dq->_as_dl, qos, flags);
 	}
+#elif defined(__wasi__)
+	if (_dispatch_queue_is_thread_bound(dq)) {
+		// The cooperative drain runs the thread-bound main queue. Update
+		// dq_state first. Then note the queue for the drain if it has items,
+		// as _dispatch_runloop_queue_wakeup does.
+		_dispatch_lane_wakeup(dq, qos, flags);
+		if (_dispatch_queue_class_probe(dq)) {
+			_dispatch_wasi_main_queue_poke();
+		}
+		return;
+	}
 #endif
 	return _dispatch_lane_wakeup(dq, qos, flags);
 }
 
-#if !defined(_WIN32)
+#if !defined(_WIN32) && !defined(__wasi__)
 DISPATCH_NOINLINE DISPATCH_NORETURN
 static void
 _dispatch_sigsuspend(void)
@@ -7148,8 +7269,9 @@ _dispatch_sigsuspend(void)
 		sigsuspend(&mask);
 	}
 }
-#endif // !defined(_WIN32)
+#endif // !defined(_WIN32) && !defined(__wasi__)
 
+#if !defined(__wasi__)
 DISPATCH_NORETURN
 static void
 _dispatch_sig_thread(void *ctxt DISPATCH_UNUSED)
@@ -7163,11 +7285,34 @@ _dispatch_sig_thread(void *ctxt DISPATCH_UNUSED)
 	_dispatch_sigsuspend();
 #endif
 }
+#endif // !defined(__wasi__)
 
 void
 dispatch_main(void)
 {
 	_dispatch_root_queues_init();
+#if defined(__wasi__)
+	// WASI cannot park the main thread, so dispatch_main() is the drain loop.
+	// It never returns. A program ends with exit() from a work item.
+
+	// Drains do not nest, so no queued work or due timer could run under a
+	// call from a drained work item.
+	if (unlikely(_dispatch_wasi_in_drain())) {
+		DISPATCH_CLIENT_CRASH(0, "dispatch_main() called from a work item");
+	}
+	_dispatch_object_debug(&_dispatch_main_q, "%s", __func__);
+	// Drain all work, then sleep to the next timer. With no timer the wait
+	// would never end, so crash.
+	for (;;) {
+		_dispatch_wasi_drain();
+		uint64_t deadline = _dispatch_wasi_next_timer_ns();
+		if (deadline) {
+			_dispatch_wasi_sleep_until(deadline);
+			continue;
+		}
+		DISPATCH_CLIENT_CRASH(0, "dispatch_main() with no work or timer");
+	}
+#else // defined(__wasi__)
 #if HAVE_PTHREAD_MAIN_NP
 	if (pthread_main_np()) {
 #endif
@@ -7198,6 +7343,7 @@ dispatch_main(void)
 	}
 	DISPATCH_CLIENT_CRASH(0, "dispatch_main() must be called on the main thread");
 #endif
+#endif // defined(__wasi__)
 }
 
 DISPATCH_NOINLINE
@@ -7229,7 +7375,7 @@ _dispatch_queue_cleanup2(void)
 	// similar non-POSIX API was called
 	// this has to run before the DISPATCH_COCOA_COMPAT below
 	// See dispatch_main for call to _dispatch_sig_thread on linux.
-#ifndef __linux__
+#if !defined(__linux__) && !defined(__wasi__)
 	if (_dispatch_program_is_probably_callback_driven) {
 		_dispatch_barrier_async_detached_f(_dispatch_get_default_queue(true),
 				NULL, _dispatch_sig_thread);
@@ -7466,6 +7612,15 @@ static inline DWORD
 _gettid(void)
 {
 	return GetCurrentThreadId();
+}
+#elif defined(__wasi__)
+DISPATCH_ALWAYS_INLINE
+static inline pid_t
+_gettid(void)
+{
+	// WASI has one thread. Seed tsd->tid with the main lock owner id. A
+	// root-queue drain turn switches to DISPATCH_WASI_WORKER_TID.
+	return DISPATCH_WASI_MAIN_TID;
 }
 #else
 #error "SYS_gettid unavailable on this system"

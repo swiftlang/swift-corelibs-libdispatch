@@ -31,7 +31,7 @@
 #include <mach/message.h>
 #endif
 
-#if !defined(_WIN32)
+#if !defined(_WIN32) && (!defined(__wasi__) || defined(_WASI_EMULATED_SIGNAL))
 #include <signal.h>
 #endif
 

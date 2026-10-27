@@ -1541,7 +1541,12 @@ _dispatch_fd_entry_create_with_fd(dispatch_fd_t fd, uintptr_t hash)
 						break;
 				);
 			}
+#if defined(__wasi__)
+			// WASI has no device major numbers.
+			dev_t dev = 0;
+#else
 			dev_t dev = (dev_t)major(st.st_dev);
+#endif
 			// We have to get the disk on the global dev queue. The
 			// barrier queue cannot continue until that is complete
 			dispatch_suspend(fd_entry->barrier_queue);
@@ -1635,7 +1640,7 @@ _dispatch_fd_entry_create_with_path(dispatch_io_path_data_t path_data,
 	_dispatch_fd_entry_debug("create: path %s", fd_entry, path_data->path);
 #endif
 	if (S_ISREG(mode)) {
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(__wasi__)
 		_dispatch_disk_init(fd_entry, 0);
 #else
 		_dispatch_disk_init(fd_entry, (dev_t)major(dev));

@@ -38,6 +38,7 @@ add_library(dispatch
   event/event_epoll.c
   event/event_internal.h
   event/event_kevent.c
+  event/event_wasi.c
   event/event_windows.c
   firehose/firehose_internal.h
   shims/android_stubs.h
@@ -105,6 +106,15 @@ if(WIN32)
 elseif(ANDROID)
   target_compile_options(dispatch PRIVATE
     -U_GNU_SOURCE)
+elseif(WASI)
+  # wasip1 has one thread, so build as a uniprocessor. DISPATCH_HW_CONFIG_UP
+  # drops cache-line padding and spin loops. event_wasi.c rejects threaded
+  # targets.
+  target_compile_definitions(dispatch PRIVATE
+    DISPATCH_HW_CONFIG_UP=1
+    "$<$<COMPILE_LANGUAGE:C,CXX>:_WASI_EMULATED_MMAN>"
+    "$<$<COMPILE_LANGUAGE:C,CXX>:_WASI_EMULATED_GETPID>"
+    "$<$<COMPILE_LANGUAGE:C,CXX>:_WASI_EMULATED_SIGNAL>")
 endif()
 if(DISPATCH_ENABLE_ASSERTS)
   target_compile_definitions(dispatch PRIVATE
@@ -152,6 +162,10 @@ target_link_libraries(dispatch PRIVATE
   Threads::Threads)
 target_link_libraries(dispatch PUBLIC
   BlocksRuntime::BlocksRuntime)
+if(WASI)
+  target_link_libraries(dispatch PUBLIC
+    wasi-emulated-getpid)
+endif()
 if(WIN32)
   target_link_libraries(dispatch PRIVATE
     AdvAPI32

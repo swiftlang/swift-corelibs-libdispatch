@@ -28,7 +28,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <stdio.h>
-#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+#if defined(__unix__) || defined(__wasi__) || (defined(__APPLE__) && defined(__MACH__))
 #include <unistd.h>
 #if __has_include(<sys/event.h>)
 #define HAS_SYS_EVENT_H 1
@@ -107,6 +107,11 @@ dispatch_test_get_large_file(void)
 {
 #if defined(__APPLE__)
 	return strdup("/usr/bin/vi");
+#elif defined(__wasi__)
+	// wasi-libc has no mkstemp ("WASI has no temp directories"). The
+	// dispatch IO tests that need a large file do not run on WASI.
+	fprintf(stderr, "dispatch_test_get_large_file is unsupported on WASI\n");
+	abort();
 #elif defined(__unix__) || defined(_WIN32)
 	// Depending on /usr/bin/vi being present is unreliable (especially on
 	// Android), so fill up a large-enough temp file with random bytes
@@ -199,6 +204,10 @@ dispatch_test_release_large_file(const char *path)
 #if defined(__APPLE__)
 	// The path is fixed to a system file - do nothing
 	(void)path;
+#elif defined(__wasi__)
+	(void)path;
+	fprintf(stderr, "dispatch_test_release_large_file is unsupported on WASI\n");
+	abort();
 #elif defined(__unix__) || defined(_WIN32)
 	if (unlink(path) < 0) {
 		perror("unlink");

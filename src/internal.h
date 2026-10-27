@@ -269,11 +269,13 @@ upcast(dispatch_object_t dou)
 #if defined(_WIN32)
 #include <time.h>
 #else
+#if !defined(__wasi__)
 #include <sys/mount.h>
+#endif
 #ifdef __ANDROID__
 #include <linux/sysctl.h>
 #endif /* __ANDROID__ */
-#if !defined(__linux__)
+#if !defined(__linux__) && !defined(__wasi__)
 #include <sys/sysctl.h>
 #include <sys/queue.h>
 #endif
@@ -312,7 +314,8 @@ upcast(dispatch_object_t dou)
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)) || \
+		defined(__wasi__)
 #include <unistd.h>
 #endif
 #if defined(_WIN32)
@@ -506,7 +509,8 @@ void _dispatch_abort(size_t line, uintptr_t val);
 #endif
 #endif // DISPATCH_USE_SIMPLE_ASL
 
-#if !DISPATCH_USE_SIMPLE_ASL && !DISPATCH_USE_OS_DEBUG_LOG && !defined(_WIN32)
+#if !DISPATCH_USE_SIMPLE_ASL && !DISPATCH_USE_OS_DEBUG_LOG && \
+		!defined(_WIN32) && !defined(__wasi__)
 #include <syslog.h>
 #endif
 
@@ -632,7 +636,7 @@ void *_dispatch_calloc(size_t num_items, size_t size);
 const char *_dispatch_strdup_if_mutable(const char *str);
 void _dispatch_vtable_init(void);
 char *_dispatch_get_build(void);
-#if !defined(_WIN32)
+#if !defined(_WIN32) && !defined(__wasi__)
 int _dispatch_sigmask(void);
 #endif
 
@@ -994,7 +998,17 @@ _dispatch_ktrace_impl(uint32_t code, uint64_t a, uint64_t b,
 #define _dispatch_set_crash_log_message(msg) \
 		_dispatch_set_crash_log_message_dynamic((msg))
 #define _dispatch_set_crash_log_message_dynamic(msg) _RPTF0(_CRT_ASSERT, (msg))
-#else  // _WIN32
+#elif defined(__wasi__)
+// A wasm trap carries no crash-log payload, so write the reason to stderr.
+// This bypasses _dispatch_log(), so LIBDISPATCH_LOG cannot hide it.
+#define _dispatch_set_crash_log_cause_and_message(ac, msg) \
+		((void)fprintf(stderr, "%s (cause: 0x%llx)\n", (msg), \
+				(unsigned long long)(ac)))
+#define _dispatch_set_crash_log_message(msg) \
+		((void)fprintf(stderr, "%s\n", (msg)))
+#define _dispatch_set_crash_log_message_dynamic(msg) \
+		_dispatch_set_crash_log_message(msg)
+#else
 #define _dispatch_set_crash_log_cause_and_message(ac, msg) ((void)(ac))
 #define _dispatch_set_crash_log_message(msg)
 #define _dispatch_set_crash_log_message_dynamic(msg)

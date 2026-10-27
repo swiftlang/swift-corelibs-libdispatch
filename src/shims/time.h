@@ -134,6 +134,12 @@ _dispatch_get_nanoseconds(void)
  *
  * Using the CLOCK_MONOTONIC family on POSIX-compliant platforms
  * will lead to bugs, hence its use is restricted to Linux.
+ *
+ * WASI is an exception. wasi-libc defines only CLOCK_REALTIME and
+ * CLOCK_MONOTONIC. It has no CLOCK_UPTIME or CLOCK_BOOTTIME. On WASI,
+ * _dispatch_uptime() and _dispatch_monotonic_time() both read
+ * CLOCK_MONOTONIC, so DISPATCH_CLOCK_UPTIME and DISPATCH_CLOCK_MONOTONIC
+ * are the same clock.
  */
 
 static inline uint64_t
@@ -141,7 +147,7 @@ _dispatch_uptime(void)
 {
 #if HAVE_MACH_ABSOLUTE_TIME
 	return mach_absolute_time();
-#elif HAVE_DECL_CLOCK_MONOTONIC && defined(__linux__)
+#elif HAVE_DECL_CLOCK_MONOTONIC && (defined(__linux__) || defined(__wasi__))
 	struct timespec ts;
 	dispatch_assume_zero(clock_gettime(CLOCK_MONOTONIC, &ts));
 	return _dispatch_timespec_to_nano(ts);

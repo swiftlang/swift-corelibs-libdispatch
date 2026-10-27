@@ -265,7 +265,7 @@ DISPATCH_ENUM(dispatch_wakeup_flags, uint32_t,
 );
 
 typedef struct dispatch_invoke_context_s {
-#if DISPATCH_USE_WORKQUEUE_NARROWING
+#if DISPATCH_USE_WORKQUEUE_NARROWING || defined(__wasi__)
 	uint64_t dic_next_narrow_check;
 #endif
 	struct dispatch_object_s *dic_barrier_waiter;
@@ -275,7 +275,7 @@ typedef struct dispatch_invoke_context_s {
 #endif
 } dispatch_invoke_context_s, *dispatch_invoke_context_t;
 
-#if DISPATCH_USE_WORKQUEUE_NARROWING
+#if DISPATCH_USE_WORKQUEUE_NARROWING || defined(__wasi__)
 #define DISPATCH_THREAD_IS_NARROWING 1
 
 #define dispatch_with_disabled_narrowing(dic, ...) ({ \

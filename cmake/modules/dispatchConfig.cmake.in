@@ -5,6 +5,11 @@ set(DISPATCH_HAS_SWIFT_SDK_OVERLAY @ENABLE_SWIFT@)
 if(NOT @BUILD_SHARED_LIBS@)
   set(CMAKE_THREAD_PREFER_PTHREAD @CMAKE_THREAD_PREFER_PTHREAD@)
   set(THREADS_PREFER_PTHREAD_FLAG @THREADS_PREFER_PTHREAD_FLAG@)
+  if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
+    # wasi-libc provides the pthread stubs. A STATIC_LIBRARY try_compile in
+    # the consumer cannot prove that, so repeat the libdispatch override.
+    set(CMAKE_HAVE_LIBC_PTHREAD YES)
+  endif()
   find_dependency(Threads)
 
   if(@LibRT_FOUND@)

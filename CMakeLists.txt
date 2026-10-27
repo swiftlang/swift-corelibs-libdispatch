@@ -16,6 +16,11 @@ project(dispatch
 
 set(CMAKE_POSITION_INDEPENDENT_CODE YES)
 
+# CMake 3.31 sets WASI for CMAKE_SYSTEM_NAME=WASI. Older CMake does not.
+if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
+  set(WASI 1)
+endif()
+
 if(WIN32)
   include(CheckCSourceCompiles)
   include(CheckSymbolExists)
@@ -102,7 +107,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
-if(ANDROID)
+# wasi-libc provides pthread stubs directly. A static-library try_compile
+# cannot prove that by linking. With this result FindThreads takes the stubs
+# from libc and never adds -pthread, which would select the unsupported
+# threaded WASI ABI.
+if(ANDROID OR WASI)
   set(CMAKE_HAVE_LIBC_PTHREAD YES)
 endif()
 find_package(Threads REQUIRED)
@@ -124,10 +133,18 @@ include(DTrace)
 
 include(EnableFramePointers)
 
+if(WASI)
+  set(BUILD_SHARED_LIBS_DEFAULT OFF)
+else()
+  set(BUILD_SHARED_LIBS_DEFAULT ON)
+endif()
 # NOTE(abdulras) this is the CMake supported way to control whether we generate
 # shared or static libraries.  This impacts the behaviour of `add_library` in
 # what type of library it generates.
-option(BUILD_SHARED_LIBS "build shared libraries" ON)
+option(BUILD_SHARED_LIBS "build shared libraries" ${BUILD_SHARED_LIBS_DEFAULT})
+if(WASI AND BUILD_SHARED_LIBS)
+  message(FATAL_ERROR "libdispatch supports only static libraries on WASI; set BUILD_SHARED_LIBS=OFF")
+endif()
 
 option(DISPATCH_ENABLE_ASSERTS "enable debug assertions" FALSE)
 
@@ -159,12 +176,39 @@ endif()
 option(INSTALL_PRIVATE_HEADERS "installs private headers in the same location as the public ones" OFF)
 
 option(ENABLE_SWIFT "enable libdispatch swift overlay" OFF)
+if(ENABLE_SWIFT AND WASI)
+  message(FATAL_ERROR "the libdispatch Swift overlay does not support WASI yet; set ENABLE_SWIFT=OFF")
+endif()
 if(ENABLE_SWIFT)
   enable_language(Swift)
 endif()
 
 option(ENABLE_THREAD_LOCAL_STORAGE "enable usage of thread local storage via _Thread_local" ON)
 set(DISPATCH_USE_THREAD_LOCAL_STORAGE ${ENABLE_THREAD_LOCAL_STORAGE})
+
+if(WASI AND
+   CMAKE_TRY_COMPILE_TARGET_TYPE STREQUAL "STATIC_LIBRARY")
+  # A STATIC_LIBRARY try_compile cannot link, so the function checks below
+  # would pass for every declared function. These cache values give the
+  # result for the single-threaded wasip1 wasi-libc instead. A configure
+  # that can link runs the real checks. Callers can override each value.
+  set(HAVE__PTHREAD_WORKQUEUE_INIT 0 CACHE BOOL "WASI libc result")
+  set(HAVE_GETPROGNAME 0 CACHE BOOL "WASI libc result")
+  set(HAVE_MACH_ABSOLUTE_TIME 0 CACHE BOOL "WASI libc result")
+  set(HAVE_MACH_APPROXIMATE_TIME 0 CACHE BOOL "WASI libc result")
+  set(HAVE_MACH_PORT_CONSTRUCT 0 CACHE BOOL "WASI libc result")
+  set(HAVE_MALLOC_CREATE_ZONE 0 CACHE BOOL "WASI libc result")
+  set(HAVE_POSIX_FADVISE 1 CACHE BOOL "WASI libc result")
+  set(HAVE_POSIX_SPAWNP 0 CACHE BOOL "WASI libc result")
+  set(HAVE_PTHREAD_KEY_INIT_NP 0 CACHE BOOL "WASI libc result")
+  set(HAVE_PTHREAD_ATTR_SETCPUPERCENT_NP 0 CACHE BOOL "WASI libc result")
+  set(HAVE_PTHREAD_YIELD_NP 0 CACHE BOOL "WASI libc result")
+  set(HAVE_PTHREAD_MAIN_NP 0 CACHE BOOL "WASI libc result")
+  set(HAVE_PTHREAD_WORKQUEUE_SETDISPATCH_NP 0 CACHE BOOL "WASI libc result")
+  set(HAVE_STRLCPY 1 CACHE BOOL "WASI libc result")
+  set(HAVE_SYSCONF 1 CACHE BOOL "WASI libc result")
+  set(HAVE_ARC4RANDOM 1 CACHE BOOL "WASI libc result")
+endif()
 
 
 check_linker_flag(C "LINKER:--build-id=sha1" LINKER_SUPPORTS_BUILD_ID)
@@ -242,6 +286,10 @@ check_library_exists(pthread sem_init "" USE_POSIX_SEM)
 # NOTE: android has not always provided a libpthread, but uses the pthreads API
 if(ANDROID)
   set(USE_POSIX_SEM 1)
+elseif(WASI)
+  # WASI uses its own counter semaphore. shims/lock.h tests USE_POSIX_SEM
+  # before its __wasi__ arm, so a libc that has sem_init must not win.
+  set(USE_POSIX_SEM 0)
 endif()
 
 check_symbol_exists(CLOCK_UPTIME "time.h" HAVE_DECL_CLOCK_UPTIME)

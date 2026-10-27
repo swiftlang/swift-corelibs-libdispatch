@@ -74,6 +74,27 @@ _dispatch_thread_switch(dispatch_lock value, dispatch_lock_options_t flags,
   sched_yield();
 }
 #endif // HAVE_UL_UNFAIR_LOCK
+#elif defined(__wasi__)
+#if !HAVE_UL_UNFAIR_LOCK && !HAVE_FUTEX_PI
+DISPATCH_NOINLINE DISPATCH_NORETURN
+static void
+_dispatch_thread_switch(dispatch_lock value, dispatch_lock_options_t flags,
+  uint32_t timeout)
+{
+	(void)flags;
+	(void)timeout;
+	// A contended lock on the sole thread is a deadlock, because no other
+	// thread can release it. An owner that is neither thread id is a
+	// corrupt lock word, for example a garbage dispatch_once_t.
+	dispatch_tid owner = _dispatch_lock_owner(value);
+	if (owner == _dispatch_wasi_lock_owner(DISPATCH_WASI_MAIN_TID) ||
+			owner == _dispatch_wasi_lock_owner(DISPATCH_WASI_WORKER_TID)) {
+		DISPATCH_CLIENT_CRASH(value, "Deadlock: lock contended on "
+				"single-threaded WASI");
+	}
+	DISPATCH_CLIENT_CRASH(value, "Corrupt lock value");
+}
+#endif
 #elif defined(__unix__)
 #if !HAVE_UL_UNFAIR_LOCK && !HAVE_FUTEX_PI
 DISPATCH_ALWAYS_INLINE
@@ -344,6 +365,84 @@ _dispatch_sema4_timedwait(_dispatch_sema4_t *sema, dispatch_time_t timeout)
 	_pop_timer_resolution(resolution);
 	return wait_result == WAIT_TIMEOUT;
 }
+#elif defined(__wasi__)
+DISPATCH_ALWAYS_INLINE
+static inline bool
+_dispatch_sema4_try_consume(_dispatch_sema4_t *sema)
+{
+	uint32_t value = os_atomic_load(sema, relaxed);
+	while (value > 0) {
+		if (os_atomic_cmpxchgv(sema, value, value - 1, &value, acquire)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void
+_dispatch_sema4_dispose_slow(_dispatch_sema4_t *sema, int policy DISPATCH_UNUSED)
+{
+	*sema = 0;
+}
+
+void
+_dispatch_sema4_signal(_dispatch_sema4_t *sema, long count)
+{
+	(void)os_atomic_add(sema, (uint32_t)count, release);
+}
+
+// Crashes with a deadlock message that names the call that blocked.
+// DISPATCH_CLIENT_CRASH needs a literal message, so each case has its own.
+DISPATCH_NOINLINE DISPATCH_NORETURN
+static void
+_dispatch_wasi_wait_crash(dispatch_lock_options_t waiter)
+{
+	switch (waiter & DLOCK_WASI_WAITER_MASK) {
+	case DLOCK_WASI_WAITER_QUEUE:
+		DISPATCH_CLIENT_CRASH(0, "Deadlock: dispatch_sync or "
+				"dispatch_async_and_wait on single-threaded WASI");
+	case DLOCK_WASI_WAITER_SEMAPHORE:
+		DISPATCH_CLIENT_CRASH(0, "Deadlock: semaphore wait on "
+				"single-threaded WASI");
+	case DLOCK_WASI_WAITER_SEMAPHORE_TIMED:
+		DISPATCH_CLIENT_CRASH(0, "Deadlock: semaphore timed wait on "
+				"single-threaded WASI");
+	default:
+		DISPATCH_CLIENT_CRASH(0, "Deadlock: dispatch_group_wait, "
+				"dispatch_block_wait, or dispatch_source_cancel_and_wait "
+				"on single-threaded WASI");
+	}
+}
+
+// A sema4 wait is a wait on the counter address while it is 0.
+DISPATCH_NOINLINE
+static void
+_dispatch_wasi_sema4_wait(_dispatch_sema4_t *sema,
+		dispatch_lock_options_t waiter)
+{
+	while (!_dispatch_sema4_try_consume(sema)) {
+		(void)_dispatch_wait_on_address(sema, 0, DISPATCH_TIME_FOREVER,
+				waiter);
+	}
+}
+
+void
+_dispatch_sema4_wait(_dispatch_sema4_t *sema)
+{
+	_dispatch_wasi_sema4_wait(sema, DLOCK_WASI_WAITER_SEMAPHORE);
+}
+
+bool
+_dispatch_sema4_timedwait(_dispatch_sema4_t *sema, dispatch_time_t timeout)
+{
+	while (!_dispatch_sema4_try_consume(sema)) {
+		if (_dispatch_wait_on_address(sema, 0, timeout,
+				DLOCK_WASI_WAITER_SEMAPHORE_TIMED) == ETIMEDOUT) {
+			return true;
+		}
+	}
+	return false;
+}
 #else
 #error "port has to implement _dispatch_sema4_t"
 #endif
@@ -567,6 +666,24 @@ _dispatch_wait_on_address(uint32_t volatile *_address, uint32_t value,
 		return _umtx_op((void*)address, UMTX_OP_WAIT_UINT, value, (void*)(uintptr_t)sizeof(struct timespec), (void*)&ts);
 	}
 	return _umtx_op((void*)address, UMTX_OP_WAIT_UINT, value, 0, 0);
+#elif defined(__wasi__)
+	// No other thread can change the value, and a wait runs no queued work.
+	// A timed wait sleeps to its deadline and times out. An indefinite wait
+	// can never return, so it crashes as a deadlock.
+	if (os_atomic_load(address, relaxed) != value) {
+		return 0;
+	}
+	uint64_t deadline;
+	if (nsecs != DISPATCH_TIME_FOREVER &&
+			!os_add_overflow(_dispatch_uptime(), nsecs, &deadline) &&
+			deadline < DISPATCH_TIME_MAX_VALUE) {
+		// On a runtime that cannot sleep, this polls the clock.
+		while (_dispatch_uptime() < deadline) {
+			_dispatch_wasi_sleep_until(deadline);
+		}
+		return ETIMEDOUT;
+	}
+	_dispatch_wasi_wait_crash(flags);
 #else
 #error _dispatch_wait_on_address unimplemented for this platform
 #endif
@@ -620,6 +737,8 @@ _dispatch_thread_event_wait_slow(dispatch_thread_event_t dte)
 				NULL, FUTEX_PRIVATE_FLAG);
 #endif
 	}
+#elif defined(__wasi__)
+	_dispatch_wasi_sema4_wait(&dte->dte_sema, DLOCK_WASI_WAITER_QUEUE);
 #else
 	_dispatch_sema4_wait(&dte->dte_sema);
 #endif

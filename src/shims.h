@@ -33,7 +33,7 @@
 #include "shims/generic_win_stubs.h"
 #endif // defined(_WIN32)
 
-#if defined(_WIN32) || defined(__linux__)
+#if defined(_WIN32) || defined(__linux__) || defined(__wasi__)
 #include "shims/generic_sys_queue.h"
 #endif
 

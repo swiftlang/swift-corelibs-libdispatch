@@ -812,8 +812,15 @@ _dispatch_source_invoke2(dispatch_source_t ds, dispatch_invoke_context_t dic,
 			// queue, this would requeue the source and ask for a new overcommit
 			// thread right away.
 			if (!(dqf & (DSF_CANCELED | DSF_DELETED))) {
+#if defined(__wasi__)
+				// WASI has one thread and no overcommit thread to ask for.
+				// A source that triggers itself always re-queues, so it
+				// cannot keep the thread from timers and other queues.
+				avoid_starvation = true;
+#else
 				avoid_starvation = dq->do_targetq ||
 						!(dq->dq_priority & DISPATCH_PRIORITY_FLAG_OVERCOMMIT);
+#endif
 			}
 			if (avoid_starvation &&
 					os_atomic_load2o(dr, ds_pending_data, relaxed)) {

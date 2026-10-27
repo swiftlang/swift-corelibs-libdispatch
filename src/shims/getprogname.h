@@ -41,6 +41,9 @@ getprogname(void)
 	return program_invocation_short_name;
 # elif defined(__ANDROID__)
 	return __progname;
+# elif defined(__wasi__)
+	// wasi-libc provides no getprogname(3)
+	return (char *)"unknown";
 # else
 #   error getprogname(3) is not available on this platform
 # endif

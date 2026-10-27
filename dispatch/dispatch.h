@@ -28,7 +28,7 @@
 #include <os/base.h>
 #elif defined(_WIN32)
 #include <os/generic_win_base.h>
-#elif defined(__unix__)
+#elif defined(__unix__) || defined(__wasi__)
 #include <os/generic_unix_base.h>
 #endif
 
@@ -38,7 +38,8 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <string.h>
-#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)) || \
+		defined(__wasi__)
 #include <unistd.h>
 #endif
 #include <fcntl.h>

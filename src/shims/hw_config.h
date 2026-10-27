@@ -197,12 +197,12 @@ _dispatch_hw_get_config(_dispatch_hw_config_t c)
 	}
 #elif defined(__FreeBSD__)
 	(void)c; name = "kern.smp.cpus";
-#elif defined(__OpenBSD__)
+#elif defined(__OpenBSD__) || defined(__wasi__)
 	(void)c;
 #endif
 	if (name) {
 		size_t valsz = sizeof(val);
-#if !defined(__OpenBSD__)
+#if !defined(__OpenBSD__) && !defined(__wasi__)
 		r = sysctlbyname(name, &val, &valsz, NULL, 0);
 		(void)dispatch_assume_zero(r);
 #endif
