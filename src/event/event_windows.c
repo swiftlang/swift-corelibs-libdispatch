@@ -90,6 +90,8 @@ typedef struct dispatch_muxnote_s {
 static LIST_HEAD(dispatch_muxnote_bucket_s, dispatch_muxnote_s)
     _dispatch_sources[DSL_HASH_SIZE];
 
+static dispatch_unfair_lock_s _dispatch_muxnotes_lock;
+
 DISPATCH_ALWAYS_INLINE
 static inline struct dispatch_muxnote_bucket_s *
 _dispatch_unote_muxnote_bucket(uint32_t ident)
@@ -531,8 +533,8 @@ _dispatch_unote_required_events(dispatch_unote_t du)
 	}
 }
 
-bool
-_dispatch_unote_register_muxed(dispatch_unote_t du)
+static bool
+_dispatch_unote_register_muxed_locked(dispatch_unote_t du)
 {
 	struct dispatch_muxnote_bucket_s *dmb;
 	dispatch_muxnote_t dmn;
@@ -584,19 +586,31 @@ _dispatch_unote_register_muxed(dispatch_unote_t du)
 	return true;
 }
 
+bool
+_dispatch_unote_register_muxed(dispatch_unote_t du)
+{
+	_dispatch_unfair_lock_lock(&_dispatch_muxnotes_lock);
+	bool registered = _dispatch_unote_register_muxed_locked(du);
+	_dispatch_unfair_lock_unlock(&_dispatch_muxnotes_lock);
+	return registered;
+}
+
 void
 _dispatch_unote_resume_muxed(dispatch_unote_t du)
 {
 	dispatch_unote_linkage_t dul = _dispatch_unote_get_linkage(du);
 	dispatch_muxnote_t dmn = dul->du_muxnote;
 	dispatch_assert(_dispatch_unote_registered(du));
+	_dispatch_unfair_lock_lock(&_dispatch_muxnotes_lock);
 	_dispatch_io_trigger(dmn);
+	_dispatch_unfair_lock_unlock(&_dispatch_muxnotes_lock);
 }
 
 bool
 _dispatch_unote_unregister_muxed(dispatch_unote_t du)
 {
 	dispatch_unote_linkage_t dul = _dispatch_unote_get_linkage(du);
+	_dispatch_unfair_lock_lock(&_dispatch_muxnotes_lock);
 	dispatch_muxnote_t dmn = dul->du_muxnote;
 
 	switch (dmn->dmn_handle_type) {
@@ -626,6 +640,7 @@ _dispatch_unote_unregister_muxed(dispatch_unote_t du)
 	}
 
 	_dispatch_unote_state_set(du, DU_STATE_UNREGISTERED);
+	_dispatch_unfair_lock_unlock(&_dispatch_muxnotes_lock);
 	return true;
 }
 
@@ -633,6 +648,7 @@ static void
 _dispatch_event_merge_file_handle(dispatch_muxnote_t dmn)
 {
 	dispatch_unote_linkage_t dul, dul_next;
+	_dispatch_unfair_lock_lock(&_dispatch_muxnotes_lock);
 	LIST_FOREACH_SAFE(dul, &dmn->dmn_readers_head, du_link, dul_next) {
 		dispatch_unote_t du = _dispatch_unote_linkage_get_unote(dul);
 		// consumed by dux_merge_evt()
@@ -651,6 +667,7 @@ _dispatch_event_merge_file_handle(dispatch_muxnote_t dmn)
 		os_atomic_store2o(du._dr, ds_pending_data, ~1, relaxed);
 		dux_merge_evt(du._du, EV_ADD | EV_ENABLE | EV_DISPATCH, 1, 0);
 	}
+	_dispatch_unfair_lock_unlock(&_dispatch_muxnotes_lock);
 	// Retained when posting the completion packet
 	_dispatch_muxnote_release(dmn);
 }
@@ -660,6 +677,7 @@ _dispatch_event_merge_pipe_handle_read(dispatch_muxnote_t dmn,
 		DWORD dwBytesAvailable)
 {
 	dispatch_unote_linkage_t dul, dul_next;
+	_dispatch_unfair_lock_lock(&_dispatch_muxnotes_lock);
 	LIST_FOREACH_SAFE(dul, &dmn->dmn_readers_head, du_link, dul_next) {
 		dispatch_unote_t du = _dispatch_unote_linkage_get_unote(dul);
 		// consumed by dux_merge_evt()
@@ -679,6 +697,7 @@ _dispatch_event_merge_pipe_handle_read(dispatch_muxnote_t dmn,
 		dux_merge_evt(du._du, flags, data, 0);
 	}
 	SetEvent(dmn->dmn_event);
+	_dispatch_unfair_lock_unlock(&_dispatch_muxnotes_lock);
 	// Retained when posting the completion packet
 	_dispatch_muxnote_release(dmn);
 }
@@ -688,6 +707,7 @@ _dispatch_event_merge_pipe_handle_write(dispatch_muxnote_t dmn,
 		DWORD dwBytesAvailable)
 {
 	dispatch_unote_linkage_t dul, dul_next;
+	_dispatch_unfair_lock_lock(&_dispatch_muxnotes_lock);
 	LIST_FOREACH_SAFE(dul, &dmn->dmn_writers_head, du_link, dul_next) {
 		dispatch_unote_t du = _dispatch_unote_linkage_get_unote(dul);
 		// consumed by dux_merge_evt()
@@ -701,6 +721,7 @@ _dispatch_event_merge_pipe_handle_write(dispatch_muxnote_t dmn,
 		}
 		dux_merge_evt(du._du, EV_ADD | EV_ENABLE | EV_DISPATCH, data, 0);
 	}
+	_dispatch_unfair_lock_unlock(&_dispatch_muxnotes_lock);
 	// Retained when posting the completion packet
 	_dispatch_muxnote_release(dmn);
 }
@@ -730,10 +751,12 @@ _dispatch_event_merge_socket_read(dispatch_muxnote_t dmn,
 		DWORD dwBytesAvailable)
 {
 	dispatch_unote_linkage_t dul, dul_next;
+	_dispatch_unfair_lock_lock(&_dispatch_muxnotes_lock);
 	LIST_FOREACH_SAFE(dul, &dmn->dmn_readers_head, du_link, dul_next) {
 		dispatch_unote_t du = _dispatch_unote_linkage_get_unote(dul);
 		_dispatch_event_merge_socket(du, dwBytesAvailable);
 	}
+	_dispatch_unfair_lock_unlock(&_dispatch_muxnotes_lock);
 	// Retained when posting the completion packet
 	_dispatch_muxnote_release(dmn);
 }
@@ -743,10 +766,12 @@ _dispatch_event_merge_socket_write(dispatch_muxnote_t dmn,
 		DWORD dwBytesAvailable)
 {
 	dispatch_unote_linkage_t dul, dul_next;
+	_dispatch_unfair_lock_lock(&_dispatch_muxnotes_lock);
 	LIST_FOREACH_SAFE(dul, &dmn->dmn_writers_head, du_link, dul_next) {
 		dispatch_unote_t du = _dispatch_unote_linkage_get_unote(dul);
 		_dispatch_event_merge_socket(du, dwBytesAvailable);
 	}
+	_dispatch_unfair_lock_unlock(&_dispatch_muxnotes_lock);
 	// Retained when posting the completion packet
 	_dispatch_muxnote_release(dmn);
 }
