@@ -119,6 +119,10 @@ _dispatch_muxnote_create(dispatch_unote_t du,
 	dispatch_muxnote_t dmn;
 	int8_t filter = du._du->du_filter;
 	HANDLE handle = (HANDLE)du._du->du_ident;
+	// Match the key used by _dispatch_unote_muxnote_find(), even when a
+	// write source is registered first. A socket can only have one
+	// WSAEventSelect registration, shared by its readers and writers.
+	if (filter == EVFILT_WRITE) filter = EVFILT_READ;
 
 	dmn = _dispatch_calloc(1, sizeof(*dmn));
 	if (dmn == NULL) {
