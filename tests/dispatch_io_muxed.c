@@ -170,6 +170,72 @@ test_stream_muxed(dispatch_fd_t serverfd, dispatch_fd_t clientfd)
 }
 
 static void
+test_stream_write_first(dispatch_fd_t serverfd, dispatch_fd_t clientfd)
+{
+	dispatch_queue_t queue = dispatch_queue_create("write-first", NULL);
+	dispatch_group_t ready = dispatch_group_create();
+	dispatch_group_t done = dispatch_group_create();
+	dispatch_source_t writer = dispatch_source_create(
+			DISPATCH_SOURCE_TYPE_WRITE, (uintptr_t)serverfd, 0, queue);
+	dispatch_source_t reader = dispatch_source_create(
+			DISPATCH_SOURCE_TYPE_READ, (uintptr_t)serverfd, 0, queue);
+	test_ptr_notnull("writer", writer);
+	test_ptr_notnull("reader", reader);
+	assert(writer && reader);
+
+	dispatch_source_set_event_handler(writer, ^{});
+	dispatch_source_set_registration_handler(writer, ^{
+		dispatch_group_leave(ready);
+	});
+	dispatch_source_set_cancel_handler(writer, ^{
+		dispatch_group_leave(ready);
+	});
+	dispatch_source_set_registration_handler(reader, ^{
+		dispatch_group_leave(ready);
+	});
+	dispatch_source_set_event_handler(reader, ^{
+		char byte = 0;
+#if defined(_WIN32)
+		int count = recv((SOCKET)serverfd, &byte, 1, 0);
+#else
+		ssize_t count = recv(serverfd, &byte, 1, 0);
+#endif
+		test_long("read after cancelling write source", count, 1);
+		test_long("received byte", byte, 'x');
+		dispatch_source_cancel(reader);
+	});
+	dispatch_source_set_cancel_handler(reader, ^{
+		dispatch_group_leave(done);
+	});
+
+	// Wait for actual registration, rather than depending on source creation
+	// or activation order. No peer data is sent until the writer is removed.
+	dispatch_group_enter(ready);
+	dispatch_resume(writer);
+	test_group_wait(ready);
+	dispatch_group_enter(ready);
+	dispatch_group_enter(done);
+	dispatch_resume(reader);
+	test_group_wait(ready);
+	dispatch_group_enter(ready);
+	dispatch_source_cancel(writer);
+	test_group_wait(ready);
+
+#if defined(_WIN32)
+	int count = send((SOCKET)clientfd, "x", 1, 0);
+#else
+	ssize_t count = send(clientfd, "x", 1, 0);
+#endif
+	test_long("sent byte", count, 1);
+	test_group_wait(done);
+	dispatch_release(writer);
+	dispatch_release(reader);
+	dispatch_release(ready);
+	dispatch_release(done);
+	dispatch_release(queue);
+}
+
+static void
 test_socket_muxed(void)
 {
 	printf("\nSocket Muxed\n");
@@ -216,6 +282,7 @@ test_socket_muxed(void)
 		test_stop();
 	}
 
+	test_stream_write_first((dispatch_fd_t)serverfd, (dispatch_fd_t)clientfd);
 	test_stream_muxed((dispatch_fd_t)serverfd, (dispatch_fd_t)clientfd);
 
 	closesocket(clientfd);
