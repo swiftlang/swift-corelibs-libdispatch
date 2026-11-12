@@ -172,7 +172,7 @@ if(UNIX AND (HAVE_PTHREAD_SETNAME_NP OR HAVE_PTHREAD_SET_NAME_NP) AND (HAVE_PTHR
        thread_name)
 endif()
 # EPOLLHUP handling (SR-9033); kevent platforms get this via EV_EOF
-if(LINUX)
+if(LINUX OR WIN32)
   list(APPEND DISPATCH_C_TESTS
        read_hup)
 endif()
@@ -192,7 +192,7 @@ endforeach()
 
 set_tests_properties(dispatch_io_pipe PROPERTIES TIMEOUT 15)
 set_tests_properties(dispatch_io_pipe_close PROPERTIES TIMEOUT 5)
-if(LINUX)
+if(LINUX OR WIN32)
   set_tests_properties(dispatch_read_hup PROPERTIES TIMEOUT 60)
 endif()
 
@@ -210,6 +210,7 @@ endif()
 if(WIN32)
   target_link_libraries(dispatch_io_muxed PRIVATE WS2_32)
   target_link_libraries(dispatch_io_net PRIVATE WS2_32)
+  target_link_libraries(dispatch_read_hup PRIVATE WS2_32)
 else()
   # When dispatch_group is reenabled above, remove this
   if(EXTENDED_TEST_SUITE)

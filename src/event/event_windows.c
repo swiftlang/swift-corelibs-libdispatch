@@ -79,6 +79,7 @@ typedef struct dispatch_muxnote_s {
 	// Pipe monitoring thread control
 	HANDLE dmn_thread;
 	os_atomic(bool) dmn_stop;
+	os_atomic(bool) dmn_closed;
 
 	// Socket events registered with WSAEventSelect()
 	long dmn_network_events;
@@ -300,6 +301,7 @@ _dispatch_pipe_monitor_thread(void *context)
 					&dwNumberOfBytesTransferred, /* bWait */ TRUE);
 			dwError = GetLastError();
 		}
+		bSuccess |= dwError == ERROR_MORE_DATA;
 		if (bSuccess) {
 			bSuccess = PeekNamedPipe(hPipe, NULL, 0, NULL, &dwBytesAvailable,
 					NULL);
@@ -361,6 +363,26 @@ _dispatch_pipe_write_availability(HANDLE hPipe)
 	return fpli.WriteQuotaAvailable;
 }
 
+static DWORD
+_dispatch_socket_available(SOCKET sock)
+{
+	u_long ulBytesAvailable;
+	if (ioctlsocket(sock, FIONREAD, &ulBytesAvailable) == 0) {
+		return (DWORD)ulBytesAvailable;
+	}
+	return 1;
+}
+
+static void
+_dispatch_socket_post_read(dispatch_muxnote_t dmn, DWORD dwBytesAvailable)
+{
+	_dispatch_muxnote_retain(dmn);
+	if (!PostQueuedCompletionStatus(hPort, dwBytesAvailable,
+			(ULONG_PTR)DISPATCH_PORT_SOCKET_READ, (LPOVERLAPPED)dmn)) {
+		DISPATCH_INTERNAL_CRASH(GetLastError(), "PostQueuedCompletionStatus");
+	}
+}
+
 static VOID CALLBACK
 _dispatch_socket_callback(PTP_CALLBACK_INSTANCE inst, void *context,
 		PTP_WAIT pwa, TP_WAIT_RESULT res)
@@ -370,19 +392,13 @@ _dispatch_socket_callback(PTP_CALLBACK_INSTANCE inst, void *context,
 	WSANETWORKEVENTS events;
 	if (WSAEnumNetworkEvents(sock, (WSAEVENT)dmn->dmn_event, &events) == 0) {
 		long lNetworkEvents = events.lNetworkEvents;
-		DWORD dwBytesAvailable = 1;
 		if (lNetworkEvents & FD_CLOSE) {
-			dwBytesAvailable = 0;
-		} else if (lNetworkEvents & FD_READ) {
-			ioctlsocket(sock, FIONREAD, &dwBytesAvailable);
+			os_atomic_store(&dmn->dmn_closed, true, release);
 		}
-		if ((lNetworkEvents & FD_CLOSE) ||
-			((lNetworkEvents & FD_READ) && (dwBytesAvailable > 0))) {
-			_dispatch_muxnote_retain(dmn);
-			if (!PostQueuedCompletionStatus(hPort, dwBytesAvailable,
-					(ULONG_PTR)DISPATCH_PORT_SOCKET_READ, (LPOVERLAPPED)dmn)) {
-				DISPATCH_INTERNAL_CRASH(GetLastError(),
-						"PostQueuedCompletionStatus");
+		if (lNetworkEvents & (FD_READ | FD_CLOSE)) {
+			DWORD dwBytesAvailable = _dispatch_socket_available(sock);
+			if ((lNetworkEvents & FD_CLOSE) || dwBytesAvailable > 0) {
+				_dispatch_socket_post_read(dmn, dwBytesAvailable);
 			}
 		}
 		if ((lNetworkEvents & FD_CLOSE) || (lNetworkEvents & FD_WRITE)) {
@@ -490,6 +506,11 @@ _dispatch_io_trigger(dispatch_muxnote_t dmn)
 			}
 			dmn->dmn_network_events = lNetworkEvents;
 		}
+		if ((dmn->dmn_events & DISPATCH_MUXNOTE_EVENT_READ) &&
+				os_atomic_load(&dmn->dmn_closed, acquire)) {
+			_dispatch_socket_post_read(dmn,
+					_dispatch_socket_available((SOCKET)dmn->dmn_ident));
+		}
 		if (dmn->dmn_events & DISPATCH_MUXNOTE_EVENT_WRITE) {
 			// FD_WRITE is edge-triggered, not level-triggered, so it will only
 			// be signaled if the socket becomes writable after a send() fails
@@ -590,6 +611,7 @@ _dispatch_unote_resume_muxed(dispatch_unote_t du)
 	dispatch_unote_linkage_t dul = _dispatch_unote_get_linkage(du);
 	dispatch_muxnote_t dmn = dul->du_muxnote;
 	dispatch_assert(_dispatch_unote_registered(du));
+	_dispatch_unote_state_set_bit(du, DU_STATE_ARMED);
 	_dispatch_io_trigger(dmn);
 }
 
@@ -664,19 +686,10 @@ _dispatch_event_merge_pipe_handle_read(dispatch_muxnote_t dmn,
 		dispatch_unote_t du = _dispatch_unote_linkage_get_unote(dul);
 		// consumed by dux_merge_evt()
 		_dispatch_retain_unote_owner(du);
-		dispatch_unote_state_t du_state = _dispatch_unote_state(du);
-		du_state &= ~DU_STATE_ARMED;
+		_dispatch_unote_state_clear_bit(du, DU_STATE_ARMED);
 		uintptr_t data = dwBytesAvailable;
-		uint32_t flags;
-		if (dwBytesAvailable > 0) {
-			flags = EV_ADD | EV_ENABLE | EV_DISPATCH;
-		} else {
-			du_state |= DU_STATE_NEEDS_DELETE;
-			flags = EV_DELETE | EV_DISPATCH;
-		}
-		_dispatch_unote_state_set(du, du_state);
 		os_atomic_store2o(du._dr, ds_pending_data, ~data, relaxed);
-		dux_merge_evt(du._du, flags, data, 0);
+		dux_merge_evt(du._du, EV_ADD | EV_ENABLE | EV_DISPATCH, data, 0);
 	}
 	SetEvent(dmn->dmn_event);
 	// Retained when posting the completion packet
@@ -710,19 +723,10 @@ _dispatch_event_merge_socket(dispatch_unote_t du, DWORD dwBytesAvailable)
 {
 	// consumed by dux_merge_evt()
 	_dispatch_retain_unote_owner(du);
-	dispatch_unote_state_t du_state = _dispatch_unote_state(du);
-	du_state &= ~DU_STATE_ARMED;
+	_dispatch_unote_state_clear_bit(du, DU_STATE_ARMED);
 	uintptr_t data = dwBytesAvailable;
-	uint32_t flags;
-	if (dwBytesAvailable > 0) {
-		flags = EV_ADD | EV_ENABLE | EV_DISPATCH;
-	} else {
-		du_state |= DU_STATE_NEEDS_DELETE;
-		flags = EV_DELETE | EV_DISPATCH;
-	}
-	_dispatch_unote_state_set(du, du_state);
 	os_atomic_store2o(du._dr, ds_pending_data, ~data, relaxed);
-	dux_merge_evt(du._du, flags, data, 0);
+	dux_merge_evt(du._du, EV_ADD | EV_ENABLE | EV_DISPATCH, data, 0);
 }
 
 static void
@@ -732,6 +736,10 @@ _dispatch_event_merge_socket_read(dispatch_muxnote_t dmn,
 	dispatch_unote_linkage_t dul, dul_next;
 	LIST_FOREACH_SAFE(dul, &dmn->dmn_readers_head, du_link, dul_next) {
 		dispatch_unote_t du = _dispatch_unote_linkage_get_unote(dul);
+		if (os_atomic_load(&dmn->dmn_closed, relaxed) &&
+				!_dispatch_unote_armed(du)) {
+			continue;
+		}
 		_dispatch_event_merge_socket(du, dwBytesAvailable);
 	}
 	// Retained when posting the completion packet
