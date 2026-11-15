@@ -560,8 +560,11 @@ _dispatch_event_merge_fd(dispatch_muxnote_t dmn, uint32_t events)
 
 	// SR-9033: EPOLLHUP is unmaskable and level-triggered. Deliver it like
 	// EV_EOF on kevent: as a read/write event to whoever is armed, with the
-	// remaining byte count from SIOCINQ (0 once drained).
-	if (events & EPOLLHUP) {
+	// remaining byte count from SIOCINQ (0 once drained). EPOLLERR is also
+	// unmaskable and level-triggered: deliver it the same way, like
+	// EVFILT_READ firing on so_error, so the next read() or write() reports
+	// the error.
+	if (events & (EPOLLHUP | EPOLLERR)) {
 		events |= _dispatch_muxnote_armed_events(dmn) & (EPOLLIN | EPOLLOUT);
 	}
 
