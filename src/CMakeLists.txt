@@ -1,5 +1,5 @@
 
-add_library(dispatch
+add_library(dispatch SHARED
   allocator.c
   apply.c
   benchmark.c
