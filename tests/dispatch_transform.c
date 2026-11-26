@@ -366,6 +366,55 @@ utf8_to_utf16le_test(void * context)
 	dispatch_release(utf16_data);
 	dispatch_release(utf8_data);
 
+	dispatch_group_async_f(context, dispatch_get_main_queue(), context, utf8_bom_to_utf16le_test);
+}
+
+void
+utf8_bom_to_utf16le_test(void * context)
+{
+	// UTF-8 with BOM (0xEF 0xBB 0xBF) followed by "A" (0x41)
+	static uint8_t utf8_with_bom[] = {
+		0xef, 0xbb, 0xbf, 0x41,
+	};
+	// Expected UTF-16LE: BOM (0xFEFF added by converter) + "A" (0x0041)
+	// The input BOM should be skipped, so we only get one BOM
+	static uint16_t utf16_expected[] = {
+		0xfeff, 0x0041,
+	};
+
+	dispatch_data_t utf8_data = dispatch_data_create(utf8_with_bom, sizeof(utf8_with_bom), NULL, ^{});
+	dispatch_data_t utf16_data = dispatch_data_create(utf16_expected, sizeof(utf16_expected), NULL, ^{});
+
+	dispatch_data_t transformed = dispatch_data_create_with_transform(utf8_data, DISPATCH_DATA_FORMAT_TYPE_UTF8, DISPATCH_DATA_FORMAT_TYPE_UTF16LE);
+	test_ptr_notnull("dispatch_data_create_with_transform (UTF8 with BOM -> UTF16LE)", transformed);
+	test_data_equal("utf8_bom_to_utf16le_test", transformed, utf16_data);
+
+	dispatch_release(transformed);
+	dispatch_release(utf16_data);
+	dispatch_release(utf8_data);
+
+	// Test with BOM NOT at start - should NOT be skipped (char_start != 0)
+	// UTF-8: "A" (0x41) followed by BOM (0xEF 0xBB 0xBF)
+	static uint8_t utf8_bom_not_at_start[] = {
+		0x41, 0xef, 0xbb, 0xbf,
+	};
+	// Expected: BOM (added by converter) + "A" (0x0041) + BOM (0xFEFF from input, NOT skipped)
+	// The BOM in the middle should NOT be skipped because char_start != 0
+	static uint16_t utf16_with_bom_in_middle[] = {
+		0xfeff, 0x0041, 0xfeff,
+	};
+
+	dispatch_data_t utf8_data2 = dispatch_data_create(utf8_bom_not_at_start, sizeof(utf8_bom_not_at_start), NULL, ^{});
+	dispatch_data_t utf16_data2 = dispatch_data_create(utf16_with_bom_in_middle, sizeof(utf16_with_bom_in_middle), NULL, ^{});
+
+	dispatch_data_t transformed2 = dispatch_data_create_with_transform(utf8_data2, DISPATCH_DATA_FORMAT_TYPE_UTF8, DISPATCH_DATA_FORMAT_TYPE_UTF16LE);
+	test_ptr_notnull("dispatch_data_create_with_transform (UTF8 with BOM not at start -> UTF16LE)", transformed2);
+	test_data_equal("utf8_bom_not_at_start_test", transformed2, utf16_data2);
+
+	dispatch_release(transformed2);
+	dispatch_release(utf16_data2);
+	dispatch_release(utf8_data2);
+
 	dispatch_group_async_f(context, dispatch_get_main_queue(), context, utf8_to_utf16be_test);
 }
 
